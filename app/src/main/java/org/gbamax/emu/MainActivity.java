@@ -81,7 +81,7 @@ public class MainActivity extends Activity {
         int n;
         while ((n = in.read(t)) != -1) o.write(t, 0, n);
         in.close();
-        byte[] rom = o.toByteArray();
+        byte[] rom = RomReader.extract(o.toByteArray());
         sav = getFilesDir() + "/" + Integer.toHexString(Arrays.hashCode(rom)) + ".sav";
         if (!Native.load(rom, "game.gba")) { toast("ROM inválida (use .gba)"); return; }
         Native.loadSram(sav);
