@@ -190,15 +190,34 @@ public class MenuView extends FrameLayout {
         LinearLayout.LayoutParams ctl = new LinearLayout.LayoutParams(-2, -2);
         ctl.leftMargin = dp(4);
 
-        top.addView(new View(c), new LinearLayout.LayoutParams(0, 1, 1f));
+        top.addView(new IconView(c, Icons.CAL, 0xFF1B1F27), new LinearLayout.LayoutParams(dp(18), dp(18)));
+        TextClock td = new TextClock(c) {
+            @Override public void setText(CharSequence t, TextView.BufferType b) {
+                super.setText(t == null ? null : t.toString().toUpperCase(java.util.Locale.ROOT), b);
+            }
+        };
+        td.setFormat12Hour("dd/MMM/yyyy");
+        td.setFormat24Hour("dd/MMM/yyyy");
+        td.setTextSize(14);
+        td.setTypeface(Typeface.DEFAULT_BOLD);
+        td.setTextColor(0xFF1B1F27);
+        td.setSingleLine(true);
+        LinearLayout.LayoutParams tdl = new LinearLayout.LayoutParams(-2, -2);
+        tdl.leftMargin = dp(5);
+        top.addView(td, tdl);
+        LinearLayout.LayoutParams ckl = new LinearLayout.LayoutParams(dp(18), dp(18));
+        ckl.leftMargin = dp(12);
+        top.addView(new IconView(c, Icons.CLOCK, 0xFF1B1F27), ckl);
         TextClock tc = new TextClock(c);
-        tc.setFormat12Hour("MMM d, yyyy\nh:mm a");
-        tc.setFormat24Hour("MMM d, yyyy\nHH:mm");
-        tc.setTextSize(11);
+        tc.setFormat12Hour("HH:mm");
+        tc.setFormat24Hour("HH:mm");
+        tc.setTextSize(14);
         tc.setTypeface(Typeface.DEFAULT_BOLD);
         tc.setTextColor(0xFF1B1F27);
-        tc.setGravity(Gravity.CENTER);
-        top.addView(tc, new LinearLayout.LayoutParams(-2, -2));
+        tc.setSingleLine(true);
+        LinearLayout.LayoutParams tcl = new LinearLayout.LayoutParams(-2, -2);
+        tcl.leftMargin = dp(5);
+        top.addView(tc, tcl);
         top.addView(new View(c), new LinearLayout.LayoutParams(0, 1, 1f));
 
         batTxt = new TextView(c);
@@ -230,6 +249,8 @@ public class MenuView extends FrameLayout {
         int[] bg = {0xFFFFFFFF, 0xFFE53935, 0xFFFFA000, 0xFF1E6BE6, 0xFF2EAD4B, 0xFFF2F4F8, 0xFF3A3C42};
         int[] ic = {0xFF111111, Color.WHITE, Color.WHITE, Color.WHITE, Color.WHITE, 0xFF2A2F3A, Color.WHITE};
         for (int i = 0; i < 7; i++) {
+            if (i == 1) continue;
+            if (i == 1) continue;
             if (i == 1) continue;
             DockBtn b = new DockBtn(c, ty[i], bg[i], ic[i], i == 0);
             final int k = i;
@@ -545,41 +566,56 @@ public class MenuView extends FrameLayout {
     class DockBtn extends View {
         final int type, col, icol;
         final boolean sel;
+        boolean glow;
         final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
 
         DockBtn(Context c, int type, int col, int icol, boolean sel) {
             super(c);
             this.type = type; this.col = col; this.icol = icol; this.sel = sel;
-            setElevation(dp(sel ? 10 : 5));
-            if (sel) { setScaleX(1.1f); setScaleY(1.1f); }
+            setElevation(dp(5));
+            setOnHoverListener((v, e) -> {
+                int a = e.getActionMasked();
+                if (a == android.view.MotionEvent.ACTION_HOVER_ENTER) setGlow(true);
+                else if (a == android.view.MotionEvent.ACTION_HOVER_EXIT) setGlow(false);
+                return false;
+            });
+            setOnTouchListener((v, e) -> {
+                int a = e.getActionMasked();
+                if (a == android.view.MotionEvent.ACTION_DOWN) setGlow(true);
+                else if (a == android.view.MotionEvent.ACTION_UP || a == android.view.MotionEvent.ACTION_CANCEL) setGlow(false);
+                return false;
+            });
             setOutlineProvider(new ViewOutlineProvider() {
                 @Override public void getOutline(View v, Outline o) {
-                    float r = Math.min(v.getWidth(), v.getHeight()) / 2f - dp(3);
+                    float r = Math.min(v.getWidth(), v.getHeight()) / 2f - dp(5);
                     float cx = v.getWidth() / 2f, cy = v.getHeight() / 2f;
                     o.setOval((int) (cx - r), (int) (cy - r), (int) (cx + r), (int) (cy + r));
                 }
             });
         }
 
+        void setGlow(boolean g) { if (glow != g) { glow = g; invalidate(); } }
+
         @Override protected void onDraw(Canvas c) {
             float w = getWidth(), h = getHeight(), cx = w / 2, cy = h / 2;
-            float r = Math.min(w, h) / 2f - dp(3);
-            if (sel) {
-                p.setStyle(Paint.Style.STROKE);
-                p.setStrokeWidth(dp(3));
-                p.setColor(0x802F7BFF);
-                c.drawCircle(cx, cy, r + dp(2), p);
+            float r = Math.min(w, h) / 2f - dp(5);
+            if (glow) {
+                float gr = r + dp(5);
+                p.setStyle(Paint.Style.FILL);
+                p.setShader(new RadialGradient(cx, cy, gr, new int[]{0xFF4D9BFF, 0xFF4D9BFF, 0x004D9BFF},
+                        new float[]{0f, (r - dp(1)) / gr, 1f}, Shader.TileMode.CLAMP));
+                c.drawCircle(cx, cy, gr, p);
             }
             p.setStyle(Paint.Style.FILL);
             p.setShader(new LinearGradient(0, cy - r, 0, cy + r, mix(col, Color.WHITE, .35f),
-                    mix(col, Color.BLACK, .18f), Shader.TileMode.CLAMP));
+                    mix(col, Color.BLACK, col == 0xFFFFFFFF ? .06f : .18f), Shader.TileMode.CLAMP));
             c.drawCircle(cx, cy, r, p);
             p.setShader(new LinearGradient(0, cy - r, 0, cy, 0xAAFFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP));
             c.drawOval(new RectF(cx - r * .72f, cy - r * .94f, cx + r * .72f, cy - r * .05f), p);
             p.setShader(null);
             p.setStyle(Paint.Style.STROKE);
             p.setStrokeWidth(dp(1.2f));
-            p.setColor(0xCCFFFFFF);
+            p.setColor(glow ? 0xFFBBD8FF : 0xCCFFFFFF);
             c.drawCircle(cx, cy, r - dp(.6f), p);
             Icons.draw(c, type, cx, cy, r * .5f, icol, p);
         }
@@ -632,7 +668,7 @@ public class MenuView extends FrameLayout {
 
     // ================= ícones desenhados em código =================
     static class Icons {
-        static final int WIFI = 0, HEAD = 1, HOME = 2, CHAT = 3, BAG = 4, LIB = 5, FACE = 6, PAD = 7, GEAR = 8, COIN = 9;
+        static final int WIFI = 0, HEAD = 1, HOME = 2, CHAT = 3, BAG = 4, LIB = 5, FACE = 6, PAD = 7, GEAR = 8, COIN = 9, CAL = 10, CLOCK = 11;
 
         static void draw(Canvas c, int t, float x, float y, float r, int col, Paint p) {
             p.setShader(null);
@@ -741,6 +777,26 @@ public class MenuView extends FrameLayout {
                     p.setStyle(Paint.Style.STROKE);
                     p.setStrokeWidth(r * .34f);
                     c.drawCircle(x, y, r * .62f, p);
+                    break;
+                case CAL:
+                    p.setStyle(Paint.Style.STROKE);
+                    p.setStrokeWidth(r * .18f);
+                    q.set(x - .85f * r, y - .72f * r, x + .85f * r, y + .88f * r);
+                    c.drawRoundRect(q, r * .22f, r * .22f, p);
+                    c.drawLine(x - .85f * r, y - .2f * r, x + .85f * r, y - .2f * r, p);
+                    c.drawLine(x - .4f * r, y - .98f * r, x - .4f * r, y - .5f * r, p);
+                    c.drawLine(x + .4f * r, y - .98f * r, x + .4f * r, y - .5f * r, p);
+                    p.setStyle(Paint.Style.FILL);
+                    c.drawCircle(x - .4f * r, y + .25f * r, r * .12f, p);
+                    c.drawCircle(x + .4f * r, y + .25f * r, r * .12f, p);
+                    c.drawCircle(x - .4f * r, y + .62f * r, r * .12f, p);
+                    break;
+                case CLOCK:
+                    p.setStyle(Paint.Style.STROKE);
+                    p.setStrokeWidth(r * .18f);
+                    c.drawCircle(x, y, r * .88f, p);
+                    c.drawLine(x, y, x, y - .5f * r, p);
+                    c.drawLine(x, y, x + .38f * r, y + .2f * r, p);
                     break;
                 case COIN:
                     p.setStyle(Paint.Style.FILL);
