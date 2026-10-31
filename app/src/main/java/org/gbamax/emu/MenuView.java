@@ -161,7 +161,7 @@ public class MenuView extends FrameLayout {
         top.setOrientation(LinearLayout.HORIZONTAL);
         top.setGravity(Gravity.CENTER_VERTICAL);
         top.setPadding(dp(14), 0, dp(16), 0);
-        top.setBackground(glass(dp(27)));
+        top.setBackground(glass(dp(23)));
         top.setElevation(dp(8));
 
         TextView net = new TextView(c);
@@ -233,8 +233,8 @@ public class MenuView extends FrameLayout {
         bl.leftMargin = dp(5);
         top.addView(bat, bl);
 
-        LayoutParams tl = new LayoutParams(-1, dp(54), Gravity.TOP);
-        tl.setMargins(dp(12), dp(12), dp(12), 0);
+        LayoutParams tl = new LayoutParams(-1, dp(46), Gravity.TOP);
+        tl.setMargins(dp(12), dp(6), dp(12), 0);
         addView(top, tl);
 
         // ---------- dock ----------
@@ -243,7 +243,7 @@ public class MenuView extends FrameLayout {
         dock.setGravity(Gravity.CENTER);
         dock.setClipChildren(false);
         dock.setPadding(dp(8), 0, dp(8), 0);
-        dock.setBackground(glass(dp(34)));
+        dock.setBackground(glass(dp(30)));
         dock.setElevation(dp(12));
         int[] ty = {Icons.HOME, Icons.CHAT, Icons.BAG, Icons.LIB, Icons.FACE, Icons.PAD, Icons.GEAR};
         int[] bg = {0xFFFFFFFF, 0xFFE53935, 0xFFFFA000, 0xFF1E6BE6, 0xFF2EAD4B, 0xFFF2F4F8, 0xFF3A3C42};
@@ -257,14 +257,9 @@ public class MenuView extends FrameLayout {
             b.setOnClickListener(v -> dockAction(k));
             dock.addView(b, new LinearLayout.LayoutParams(0, dp(56), 1f));
         }
-        LayoutParams dl = new LayoutParams(-1, dp(68), Gravity.BOTTOM);
-        dl.setMargins(dp(14), 0, dp(14), dp(36));
+        LayoutParams dl = new LayoutParams(-1, dp(60), Gravity.BOTTOM);
+        dl.setMargins(dp(14), 0, dp(14), dp(14));
         addView(dock, dl);
-
-        dots = new DotsView(c);
-        LayoutParams pl = new LayoutParams(dp(72), dp(14), Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
-        pl.bottomMargin = dp(12);
-        addView(dots, pl);
 
         relayout();
     }
@@ -290,7 +285,7 @@ public class MenuView extends FrameLayout {
         int pad = dp(10);
         cw = (dm.widthPixels - 2 * pad) / cols;
         grid.setNumColumns(cols);
-        grid.setPadding(pad, dp(82), pad, dp(124));
+        grid.setPadding(pad, dp(68), pad, dp(92));
         LayoutParams tl = (LayoutParams) top.getLayoutParams();
         tl.width = land ? dp(640) : -1;
         tl.gravity = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
@@ -648,11 +643,17 @@ public class MenuView extends FrameLayout {
             p.setStrokeWidth(den * 1.5f);
             p.setColor(0xFF1B1F27);
             c.drawRoundRect(body, den * 4, den * 4, p);
-            p.setStyle(Paint.Style.FILL);
-            p.setColor(chg ? 0xFF2EAD4B : pct <= 15 ? 0xFFE53935 : 0xFF1B1F27);
+            int on = pct <= 0 ? 0 : pct <= 25 ? 1 : pct <= 50 ? 2 : pct <= 75 ? 3 : 4;
+            int col = pct <= 25 ? 0xFFE53935 : pct <= 50 ? 0xFFFB8C00 : pct <= 75 ? 0xFFFDD835 : 0xFF2EAD4B;
             float l = body.left + den * 2.5f, t = body.top + den * 2.5f, b = body.bottom - den * 2.5f;
-            float rgt = l + (body.width() - den * 5f) * Math.max(3, pct) / 100f;
-            c.drawRoundRect(l, t, rgt, b, den * 2, den * 2, p);
+            float gap = den * 1.5f, bw = (body.width() - den * 5f - gap * 3) / 4f;
+            p.setStyle(Paint.Style.FILL);
+            for (int i = 0; i < 4; i++) {
+                p.setColor(i < on ? col : 0x261B1F27);
+                float x0 = l + i * (bw + gap);
+                c.drawRoundRect(x0, t, x0 + bw, b, den * .8f, den * .8f, p);
+            }
+            p.setColor(0xFF1B1F27);
             c.drawRoundRect(w - nub, h * .3f, w, h * .7f, den * 1.5f, den * 1.5f, p);
         }
     }
