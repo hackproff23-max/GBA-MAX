@@ -245,13 +245,11 @@ public class MenuView extends FrameLayout {
         dock.setPadding(dp(8), 0, dp(8), 0);
         dock.setBackground(glass(dp(30)));
         dock.setElevation(dp(12));
-        int[] ty = {Icons.HOME, Icons.CHAT, Icons.BAG, Icons.LIB, Icons.FACE, Icons.PAD, Icons.GEAR};
-        int[] bg = {0xFFFFFFFF, 0xFFE53935, 0xFFFFA000, 0xFF1E6BE6, 0xFF2EAD4B, 0xFFF2F4F8, 0xFF3A3C42};
-        int[] ic = {0xFF111111, Color.WHITE, Color.WHITE, Color.WHITE, Color.WHITE, 0xFF2A2F3A, Color.WHITE};
-        for (int i = 0; i < 7; i++) {
-            if (i == 1) continue;
-            if (i == 1) continue;
-            if (i == 1) continue;
+        // mesma sequência e mesmos ícones/cores da tela de Configurações
+        int[] ty = {Icons.HOME, Icons.SCREEN, Icons.AUDIO, Icons.PAD, Icons.SAVE, Icons.GEAR};
+        int[] bg = {0xFFFFFFFF, 0xFF1E6BE6, 0xFFFFA000, 0xFF7E57C2, 0xFF2EAD4B, 0xFF3A3C42};
+        int[] ic = {0xFF111111, Color.WHITE, Color.WHITE, Color.WHITE, Color.WHITE, Color.WHITE};
+        for (int i = 0; i < 6; i++) {
             DockBtn b = new DockBtn(c, ty[i], bg[i], ic[i], i == 0);
             final int k = i;
             b.setOnClickListener(v -> dockAction(k));
@@ -305,7 +303,7 @@ public class MenuView extends FrameLayout {
         if (selected == null && !games.isEmpty()) selected = games.get(0).name;
         coins.setText(String.valueOf(games.size()));
         empty.setText(dir ? "Nenhum jogo (.zip/.gba) encontrado.\nColoque seus jogos na pasta GBA-MAX\ndo armazenamento interno."
-                : "Toque em Biblioteca (ícone azul)\npara escolher a pasta de ROMs.");
+                : "Toque em Configurações > Avançado\npara escolher a pasta de ROMs.");
         empty.setVisibility(games.isEmpty() ? VISIBLE : GONE);
         adapter.notifyDataSetChanged();
     }
@@ -380,11 +378,146 @@ public class MenuView extends FrameLayout {
         d.show();
     }
 
+    // ================= capas: escolha + janela de download =================
+    GradientDrawable pill(int col) {
+        GradientDrawable g = new GradientDrawable();
+        g.setColor(col);
+        g.setCornerRadius(dp(16));
+        return g;
+    }
+
+    TextView btn(String t, int bgc, int fg) {
+        TextView b = new TextView(getContext());
+        b.setText(t);
+        b.setTextColor(fg);
+        b.setTextSize(14);
+        b.setTypeface(Typeface.DEFAULT_BOLD);
+        b.setGravity(Gravity.CENTER);
+        b.setPadding(dp(12), dp(12), dp(12), dp(12));
+        b.setBackground(pill(bgc));
+        return b;
+    }
+
+    android.app.Dialog glassDialog(LinearLayout box) {
+        final android.app.Dialog d = new android.app.Dialog(getContext());
+        d.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
+        box.setPadding(dp(18), dp(18), dp(18), dp(14));
+        box.setBackground(glass(dp(26)));
+        d.setContentView(box);
+        android.view.Window w = d.getWindow();
+        if (w != null) {
+            w.setBackgroundDrawable(new ColorDrawable(0));
+            int sw = getResources().getDisplayMetrics().widthPixels;
+            w.setLayout(Math.min(dp(320), sw - dp(40)), -2);
+        }
+        return d;
+    }
+
+    TextView label(String t, float sz, int col, boolean bold) {
+        TextView v = new TextView(getContext());
+        v.setText(t);
+        v.setTextSize(sz);
+        v.setTextColor(col);
+        if (bold) v.setTypeface(Typeface.DEFAULT_BOLD);
+        return v;
+    }
+
+    void showCoverChoice() {
+        if (CoverService.running) { showCoverProgress(); return; }
+        final Context c = getContext();
+        LinearLayout box = new LinearLayout(c);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.addView(label("Capas dos jogos", 18, 0xFF1B1F27, true));
+        TextView m = label("Deseja baixar as capas dos seus jogos? O download continua em segundo plano.", 14, 0xFF4A5363, false);
+        m.setPadding(0, dp(8), 0, dp(14));
+        box.addView(m);
+        LinearLayout row = new LinearLayout(c);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        TextView no = btn("Agora não", 0xFFE3E7EE, 0xFF1B1F27);
+        TextView yes = btn("Baixar capas", 0xFF2EAD4B, Color.WHITE);
+        row.addView(no, new LinearLayout.LayoutParams(0, -2, 1f));
+        LinearLayout.LayoutParams yl = new LinearLayout.LayoutParams(0, -2, 1f);
+        yl.leftMargin = dp(8);
+        row.addView(yes, yl);
+        box.addView(row);
+        final android.app.Dialog d = glassDialog(box);
+        no.setOnClickListener(v -> d.dismiss());
+        yes.setOnClickListener(v -> {
+            d.dismiss();
+            if (games.isEmpty()) { toast("Nenhum jogo na lista."); return; }
+            if (Build.VERSION.SDK_INT >= 33 && c instanceof android.app.Activity
+                    && c.checkSelfPermission("android.permission.POST_NOTIFICATIONS") != android.content.pm.PackageManager.PERMISSION_GRANTED)
+                ((android.app.Activity) c).requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 77);
+            CoverService.listener = (g, f) -> post(() -> {
+                for (Game x : games) if (x.name.equals(g.name)) x.cover = Uri.fromFile(f);
+                adapter.notifyDataSetChanged();
+            });
+            CoverService.start(c.getApplicationContext(), games);
+            showCoverProgress();
+        });
+        d.show();
+    }
+
+    static String fmtSize(long b) {
+        if (b < 1024) return b + " B";
+        if (b < 1024 * 1024) return String.format(java.util.Locale.getDefault(), "%.0f KB", b / 1024.0);
+        return String.format(java.util.Locale.getDefault(), "%.1f MB", b / 1048576.0);
+    }
+
+    void showCoverProgress() {
+        final Context c = getContext();
+        LinearLayout box = new LinearLayout(c);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.addView(label("Baixando capas", 18, 0xFF1B1F27, true));
+        final TextView st = label("Iniciando...", 13, 0xFF4A5363, false);
+        st.setPadding(0, dp(8), 0, dp(8));
+        st.setSingleLine(true);
+        st.setEllipsize(TextUtils.TruncateAt.MIDDLE);
+        box.addView(st);
+        final android.widget.ProgressBar pb = new android.widget.ProgressBar(c, null, android.R.attr.progressBarStyleHorizontal);
+        pb.setMax(100);
+        box.addView(pb, new LinearLayout.LayoutParams(-1, dp(12)));
+        final TextView info = label("", 13, 0xFF1B1F27, true);
+        info.setPadding(0, dp(10), 0, dp(14));
+        box.addView(info);
+        LinearLayout row = new LinearLayout(c);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        final TextView cancel = btn("Cancelar", 0xFFE3E7EE, 0xFF1B1F27);
+        final TextView bg = btn("Segundo plano", 0xFF1E6BE6, Color.WHITE);
+        row.addView(cancel, new LinearLayout.LayoutParams(0, -2, 1f));
+        LinearLayout.LayoutParams bl = new LinearLayout.LayoutParams(0, -2, 1f);
+        bl.leftMargin = dp(8);
+        row.addView(bg, bl);
+        box.addView(row);
+        final android.app.Dialog d = glassDialog(box);
+        bg.setOnClickListener(v -> d.dismiss());
+        cancel.setOnClickListener(v -> { CoverService.cancel(); });
+        final Runnable[] tick = new Runnable[1];
+        tick[0] = () -> {
+            if (!d.isShowing()) return;
+            boolean run = CoverService.running;
+            int t = Math.max(CoverService.total, 1), dn = CoverService.done;
+            long end = run ? System.currentTimeMillis() : (CoverService.endMs > 0 ? CoverService.endMs : System.currentTimeMillis());
+            long secs = Math.max(0, (end - CoverService.startMs) / 1000);
+            pb.setProgress(run ? dn * 100 / t : (CoverService.status.equals("Concluído") ? 100 : dn * 100 / t));
+            st.setText(run ? dn + "/" + CoverService.total + " · " + CoverService.status : CoverService.status);
+            info.setText("Tempo: " + secs + " s   •   Tamanho: " + fmtSize(CoverFetcher.BYTES.get()));
+            if (!run) {
+                cancel.setVisibility(GONE);
+                ((TextView) bg).setText("Fechar");
+                return;
+            }
+            postDelayed(tick[0], 500);
+        };
+        d.show();
+        tick[0].run();
+    }
+
     void dockAction(int k) {
         switch (k) {
             case 0: grid.smoothScrollToPosition(0); break;
-            case 3: host.pickDir(); break;
-            case 6: showSettings(); break;
+            case 4: showCoverChoice(); break;
+            case 5: showSettings(); break;
             default: toast("Em breve");
         }
     }

@@ -33,6 +33,12 @@ import java.util.zip.ZipInputStream;
 // e baixa a capa do acervo libretro-thumbnails. Tudo fica em cache na pasta de capas.
 public class CoverFetcher {
     public interface Done { void onCover(MenuView.Game g, File f); }
+    public interface Progress { void onProgress(int done, int total, String status); }
+
+    // bytes baixados (listas + capas) e cancelamento
+    static final java.util.concurrent.atomic.AtomicLong BYTES = new java.util.concurrent.atomic.AtomicLong();
+    volatile boolean cancel;
+    boolean offlineMode;
 
     static final String SYS = "Nintendo - Game Boy Advance";
     static final String LIST_API = "https://api.github.com/repos/libretro-thumbnails/Nintendo_-_Game_Boy_Advance/git/trees/master?recursive=1";
@@ -55,23 +61,38 @@ public class CoverFetcher {
     }
 
     // ---------------- execução ----------------
-    public void run(List<MenuView.Game> games, Done cb) {
-        try {
-            loadList();
-            loadCodes();
-        } catch (Throwable t) { }
-        for (MenuView.Game g : games) {
+    // Só aplica capas que já estão no cache (sem usar a internet).
+    public void run(List<MenuView.Game> games, Done cb) { run(games, cb, null, true); }
+
+    public void run(List<MenuView.Game> games, Done cb, Progress pg, boolean offline) {
+        int total = games.size();
+        offlineMode = offline;
+        if (!offline) {
+            if (pg != null) pg.onProgress(0, total, "Preparando lista de capas...");
             try {
+                loadList();
+                if (!cancel) loadCodes();
+            } catch (Throwable t) { }
+        } else {
+            try { loadList(); loadCodes(); } catch (Throwable t) { }
+        }
+        int done = 0;
+        for (MenuView.Game g : games) {
+            if (cancel) return;
+            try {
+                if (pg != null) pg.onProgress(done, total, g.name);
                 if (g.cover != null) continue; // capa colocada por você na pasta tem prioridade
                 File f = new File(dir, safe(g.name) + ".png");
                 if (f.length() > 500) { cb.onCover(g, f); continue; }
-                if (names.isEmpty()) continue;
+                if (offline || names.isEmpty()) continue;
                 String code = headerCode(g.uri);
                 String hit = identify(g.name, code);
                 if (hit == null) continue;
                 if (download(hit, f)) cb.onCover(g, f);
-            } catch (Throwable t) { }
+            } catch (Throwable t) {
+            } finally { done++; }
         }
+        if (pg != null) pg.onProgress(total, total, "Concluído");
     }
 
     // ---------------- identificação ----------------
@@ -195,7 +216,7 @@ public class CoverFetcher {
     // ---------------- listas (com cache) ----------------
     void loadList() throws IOException {
         File f = new File(dir, "_list.txt");
-        if (!f.exists() || System.currentTimeMillis() - f.lastModified() > MAX_AGE) {
+        if (!offlineMode && (!f.exists() || System.currentTimeMillis() - f.lastModified() > MAX_AGE)) {
             try {
                 String js = httpText(LIST_API);
                 JSONArray a = new JSONObject(js).getJSONArray("tree");
@@ -214,7 +235,7 @@ public class CoverFetcher {
 
     void loadCodes() {
         File f = new File(dir, "_codes.txt");
-        if (!f.exists() || System.currentTimeMillis() - f.lastModified() > MAX_AGE) {
+        if (!offlineMode && (!f.exists() || System.currentTimeMillis() - f.lastModified() > MAX_AGE)) {
             try {
                 String dat = httpText(DAT_URL);
                 Map<String, String> m = new HashMap<>();
@@ -275,7 +296,7 @@ public class CoverFetcher {
             ByteArrayOutputStream o = new ByteArrayOutputStream();
             byte[] t = new byte[16384];
             int n;
-            while ((n = in.read(t)) != -1) o.write(t, 0, n);
+            while ((n = in.read(t)) != -1) { o.write(t, 0, n); BYTES.addAndGet(n); }
             return o.toByteArray();
         } finally { c.disconnect(); }
     }
