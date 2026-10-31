@@ -7,7 +7,7 @@ import android.content.pm.ActivityInfo;
 
 /** Configurações de vídeo (salvas em SharedPreferences próprio). */
 public class VideoSettings {
-    // 0 = automática, 1 = retrato, 2 = paisagem
+    // 0 = automática, 1 = retrato, 2 = paisagem (vale só dentro do jogo e do editor de layout)
     public static volatile int orient = 0;
     // 0 = desligado; 1..4 = pula N quadros a cada quadro mostrado
     public static volatile int frameskip = 0;
@@ -43,11 +43,17 @@ public class VideoSettings {
 
     public static void resetColors() { bright = 0; contrast = 100; sat = 100; gamma = 100; lcd = 0; }
 
+    /** Orientação escolhida pelo usuário: usada só no jogo e no editor de layout. */
     public static void applyOrientation(Activity a) {
         int o = orient == 1 ? ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
                 : orient == 2 ? ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
                 : ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR;
         a.setRequestedOrientation(o);
+    }
+
+    /** O menu fica sempre em retrato. */
+    public static void applyMenuOrientation(Activity a) {
+        a.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT);
     }
 
     // layout dos controles/tela, um por orientação

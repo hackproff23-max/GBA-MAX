@@ -63,7 +63,7 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         VideoSettings.load(this);
-        VideoSettings.applyOrientation(this);
+        VideoSettings.applyMenuOrientation(this); // menu sempre em retrato
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         final Thread.UncaughtExceptionHandler old = Thread.getDefaultUncaughtExceptionHandler();
         Thread.setDefaultUncaughtExceptionHandler((t, e) -> {
@@ -102,7 +102,7 @@ public class MainActivity extends Activity {
                     if (dirUri != null) scan(dirUri); else { autoScanned = false; ensureFolder(); }
                 }
                 @Override public void videoChanged() {
-                    VideoSettings.applyOrientation(MainActivity.this);
+                    // a orientação escolhida só é aplicada ao entrar no jogo / editor de layout
                     if (gl != null) gl.reloadShader();
                 }
                 @Override public void editLayout() { startLayoutEdit(); }
@@ -399,6 +399,7 @@ public class MainActivity extends Activity {
         Native.loadSram(sav);
         loaded = true;
         inGame = true;
+        VideoSettings.applyOrientation(this); // orientação escolhida vale só no jogo
         mv.setVisibility(View.GONE);
         gl.setVisibility(View.VISIBLE);
         gv.setVisibility(View.VISIBLE);
@@ -412,12 +413,14 @@ public class MainActivity extends Activity {
         gv.touch = 0; gv.ta = false; gv.tb = false;
         gv.setVisibility(View.GONE);
         gl.setVisibility(View.GONE);
+        VideoSettings.applyMenuOrientation(this); // menu volta para retrato
         mv.setVisibility(View.VISIBLE);
     }
 
     // ================= vídeo: editar layout e importar shaders =================
     void startLayoutEdit() {
         if (inGame) return;
+        VideoSettings.applyOrientation(this); // edita na orientação escolhida
         mv.setVisibility(View.GONE);
         gl.setVisibility(View.VISIBLE);
         gv.setVisibility(View.VISIBLE);
@@ -427,6 +430,7 @@ public class MainActivity extends Activity {
     void endLayoutEdit() {
         gv.setVisibility(View.GONE);
         gl.setVisibility(View.GONE);
+        VideoSettings.applyMenuOrientation(this);
         mv.setVisibility(View.VISIBLE);
     }
 
