@@ -1,6 +1,12 @@
 package org.gbamax.emu;
 
 import android.content.ContentResolver;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.Rect;
 import android.net.Uri;
 
 import org.json.JSONArray;
@@ -82,8 +88,10 @@ public class CoverFetcher {
             try {
                 if (pg != null) pg.onProgress(done, total, g.name);
                 if (g.cover != null) continue; // capa colocada por você na pasta tem prioridade
-                File f = new File(dir, safe(g.name) + ".png");
+                File f = new File(dir, safe(g.name) + ".jpg");
+                File old = new File(dir, safe(g.name) + ".png"); // capas baixadas em versões antigas
                 if (f.length() > 500) { cb.onCover(g, f); continue; }
+                if (old.length() > 500) { cb.onCover(g, old); continue; }
                 if (offline || names.isEmpty()) continue;
                 String code = headerCode(g.uri);
                 String hit = identify(g.name, code);
@@ -278,9 +286,20 @@ public class CoverFetcher {
             String u = "https://thumbnails.libretro.com/" + enc(SYS) + "/Named_Boxarts/" + enc(name) + ".png";
             byte[] d = httpBytes(u);
             if (d.length < 500) return false;
+            Bitmap src = BitmapFactory.decodeByteArray(d, 0, d.length);
+            if (src == null) return false;
+            // 256x256, JPEG (fundo branco no lugar de transparência)
+            Bitmap dst = Bitmap.createBitmap(256, 256, Bitmap.Config.ARGB_8888);
+            Canvas cv = new Canvas(dst);
+            cv.drawColor(Color.WHITE);
+            Paint pt = new Paint(Paint.FILTER_BITMAP_FLAG | Paint.ANTI_ALIAS_FLAG);
+            cv.drawBitmap(src, null, new Rect(0, 0, 256, 256), pt);
+            src.recycle();
             File tmp = new File(out.getPath() + ".tmp");
-            try (FileOutputStream o = new FileOutputStream(tmp)) { o.write(d); }
-            return tmp.renameTo(out);
+            boolean ok;
+            try (FileOutputStream o = new FileOutputStream(tmp)) { ok = dst.compress(Bitmap.CompressFormat.JPEG, 90, o); }
+            dst.recycle();
+            return ok && tmp.renameTo(out);
         } catch (Throwable t) { return false; }
     }
 

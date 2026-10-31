@@ -303,7 +303,7 @@ public class MenuView extends FrameLayout {
         if (selected == null && !games.isEmpty()) selected = games.get(0).name;
         coins.setText(String.valueOf(games.size()));
         empty.setText(dir ? "Nenhum jogo (.zip/.gba) encontrado.\nColoque seus jogos na pasta GBA-MAX\ndo armazenamento interno."
-                : "Toque em Configurações > Avançado\npara escolher a pasta de ROMs.");
+                : "Toque em Início (ícone branco)\npara escolher a pasta de ROMs.");
         empty.setVisibility(games.isEmpty() ? VISIBLE : GONE);
         adapter.notifyDataSetChanged();
     }
@@ -515,7 +515,7 @@ public class MenuView extends FrameLayout {
 
     void dockAction(int k) {
         switch (k) {
-            case 0: grid.smoothScrollToPosition(0); break;
+            case 0: host.pickDir(); break;
             case 4: showCoverChoice(); break;
             case 5: showSettings(); break;
             default: toast("Em breve");
