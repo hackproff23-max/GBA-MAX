@@ -253,7 +253,7 @@ public class MainActivity extends Activity {
         for (File f : a) {
             String n = f.getName();
             if (f.isDirectory()) {
-                if (depth < 3) walkFiles(f, m, im, depth + 1);
+                if (depth < 6) walkFiles(f, m, im, depth + 1);
                 continue;
             }
             addEntry(n, Uri.fromFile(f), m, im);
@@ -264,7 +264,7 @@ public class MainActivity extends Activity {
         int dot = n.lastIndexOf('.');
         if (dot <= 0) return;
         String base = n.substring(0, dot), low = n.toLowerCase();
-        if (low.endsWith(".zip")) {
+        if (low.endsWith(".zip") || low.endsWith(".gba") || low.endsWith(".agb")) {
             MenuView.Game g = new MenuView.Game();
             g.name = base;
             g.uri = u;
@@ -318,7 +318,7 @@ public class MainActivity extends Activity {
                 String did = c.getString(0), n = c.getString(1), mt = c.getString(2);
                 if (n == null) continue;
                 if (DocumentsContract.Document.MIME_TYPE_DIR.equals(mt)) {
-                    if (depth < 3) walk(tree, did, m, im, depth + 1);
+                    if (depth < 6) walk(tree, did, m, im, depth + 1);
                     continue;
                 }
                 addEntry(n, DocumentsContract.buildDocumentUriUsingTree(tree, did), m, im);

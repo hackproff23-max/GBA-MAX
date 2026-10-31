@@ -164,8 +164,6 @@ public class MenuView extends FrameLayout {
         top.setBackground(glass(dp(27)));
         top.setElevation(dp(8));
 
-        top.addView(new IconView(c, Icons.WIFI, 0xFF1E6BE6), new LinearLayout.LayoutParams(dp(22), dp(22)));
-
         TextView net = new TextView(c);
         net.setText("Internet");
         net.setTextColor(Color.WHITE);
@@ -181,11 +179,9 @@ public class MenuView extends FrameLayout {
         net.setElevation(dp(3));
         LinearLayout.LayoutParams nl = new LinearLayout.LayoutParams(-2, dp(30));
         nl.leftMargin = dp(8);
-        top.addView(net, nl);
 
         LinearLayout.LayoutParams cl = new LinearLayout.LayoutParams(dp(22), dp(22));
         cl.leftMargin = dp(10);
-        top.addView(new IconView(c, Icons.COIN, 0xFFFFB300), cl);
         coins = new TextView(c);
         coins.setTextColor(0xFF1B1F27);
         coins.setTextSize(13);
@@ -193,7 +189,6 @@ public class MenuView extends FrameLayout {
         coins.setText("0");
         LinearLayout.LayoutParams ctl = new LinearLayout.LayoutParams(-2, -2);
         ctl.leftMargin = dp(4);
-        top.addView(coins, ctl);
 
         top.addView(new View(c), new LinearLayout.LayoutParams(0, 1, 1f));
         TextClock tc = new TextClock(c);
@@ -206,7 +201,6 @@ public class MenuView extends FrameLayout {
         top.addView(tc, new LinearLayout.LayoutParams(-2, -2));
         top.addView(new View(c), new LinearLayout.LayoutParams(0, 1, 1f));
 
-        top.addView(new IconView(c, Icons.HEAD, 0xFF1B1F27), new LinearLayout.LayoutParams(dp(22), dp(22)));
         batTxt = new TextView(c);
         batTxt.setTextColor(0xFF1B1F27);
         batTxt.setTextSize(12);
@@ -236,6 +230,7 @@ public class MenuView extends FrameLayout {
         int[] bg = {0xFFFFFFFF, 0xFFE53935, 0xFFFFA000, 0xFF1E6BE6, 0xFF2EAD4B, 0xFFF2F4F8, 0xFF3A3C42};
         int[] ic = {0xFF111111, Color.WHITE, Color.WHITE, Color.WHITE, Color.WHITE, 0xFF2A2F3A, Color.WHITE};
         for (int i = 0; i < 7; i++) {
+            if (i == 1) continue;
             DockBtn b = new DockBtn(c, ty[i], bg[i], ic[i], i == 0);
             final int k = i;
             b.setOnClickListener(v -> dockAction(k));
@@ -293,7 +288,7 @@ public class MenuView extends FrameLayout {
         selected = sel;
         if (selected == null && !games.isEmpty()) selected = games.get(0).name;
         coins.setText(String.valueOf(games.size()));
-        empty.setText(dir ? "Nenhum jogo .zip encontrado.\nColoque seus jogos na pasta GBA-MAX\ndo armazenamento interno."
+        empty.setText(dir ? "Nenhum jogo (.zip/.gba) encontrado.\nColoque seus jogos na pasta GBA-MAX\ndo armazenamento interno."
                 : "Toque em Biblioteca (ícone azul)\npara escolher a pasta de ROMs.");
         empty.setVisibility(games.isEmpty() ? VISIBLE : GONE);
         adapter.notifyDataSetChanged();
