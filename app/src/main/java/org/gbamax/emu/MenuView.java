@@ -314,17 +314,77 @@ public class MenuView extends FrameLayout {
 
     void toast(String s) { Toast.makeText(getContext(), s, Toast.LENGTH_SHORT).show(); }
 
+    void showSettings() {
+        final Context c = getContext();
+        final android.app.Dialog d = new android.app.Dialog(c);
+        d.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
+        LinearLayout box = new LinearLayout(c);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(dp(16), dp(16), dp(16), dp(10));
+        box.setBackground(glass(dp(26)));
+        TextView title = new TextView(c);
+        title.setText("Configurações");
+        title.setTextColor(0xFF1B1F27);
+        title.setTextSize(18);
+        title.setTypeface(Typeface.DEFAULT_BOLD);
+        title.setPadding(dp(6), 0, 0, dp(12));
+        box.addView(title);
+        String[] tx = {"Configuração de tela", "Configuração de áudio", "Configuração de controle", "Configuração de saves", "Avançado"};
+        int[] ty = {Icons.SCREEN, Icons.AUDIO, Icons.PAD, Icons.SAVE, Icons.ADV};
+        int[] bg = {0xFF1E6BE6, 0xFFFFA000, 0xFF7E57C2, 0xFF2EAD4B, 0xFF3A3C42};
+        for (int i = 0; i < 5; i++) {
+            LinearLayout row = new LinearLayout(c);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setPadding(dp(8), dp(4), dp(14), dp(4));
+            GradientDrawable rg = new GradientDrawable();
+            rg.setColor(0x99FFFFFF);
+            rg.setCornerRadius(dp(18));
+            rg.setStroke(dp(1), 0xCCFFFFFF);
+            row.setBackground(rg);
+            row.addView(new DockBtn(c, ty[i], bg[i], Color.WHITE, false), new LinearLayout.LayoutParams(dp(52), dp(52)));
+            TextView t = new TextView(c);
+            t.setText(tx[i]);
+            t.setTextColor(0xFF1B1F27);
+            t.setTextSize(15);
+            t.setTypeface(Typeface.DEFAULT_BOLD);
+            LinearLayout.LayoutParams tl2 = new LinearLayout.LayoutParams(0, -2, 1f);
+            tl2.leftMargin = dp(6);
+            row.addView(t, tl2);
+            TextView ar = new TextView(c);
+            ar.setText("›");
+            ar.setTextColor(0xFF8A93A3);
+            ar.setTextSize(22);
+            row.addView(ar);
+            final int k = i;
+            row.setOnClickListener(v -> {
+                d.dismiss();
+                if (k == 4) {
+                    new AlertDialog.Builder(c).setTitle("Avançado")
+                            .setItems(new String[]{"Selecionar pasta de ROMs", "Atualizar lista"}, (d2, w) -> {
+                                if (w == 0) host.pickDir(); else host.refresh();
+                            }).show();
+                } else toast("Em breve");
+            });
+            LinearLayout.LayoutParams rl = new LinearLayout.LayoutParams(-1, -2);
+            rl.bottomMargin = dp(8);
+            box.addView(row, rl);
+        }
+        d.setContentView(box);
+        android.view.Window w = d.getWindow();
+        if (w != null) {
+            w.setBackgroundDrawable(new ColorDrawable(0));
+            int sw = getResources().getDisplayMetrics().widthPixels;
+            w.setLayout(Math.min(dp(340), sw - dp(32)), -2);
+        }
+        d.show();
+    }
+
     void dockAction(int k) {
         switch (k) {
             case 0: grid.smoothScrollToPosition(0); break;
             case 3: host.pickDir(); break;
-            case 6:
-                new AlertDialog.Builder(getContext())
-                        .setTitle("GBA-MAX")
-                        .setItems(new String[]{"Selecionar pasta de ROMs", "Atualizar lista"}, (d, w) -> {
-                            if (w == 0) host.pickDir(); else host.refresh();
-                        }).show();
-                break;
+            case 6: showSettings(); break;
             default: toast("Em breve");
         }
     }
@@ -687,7 +747,7 @@ public class MenuView extends FrameLayout {
 
     // ================= ícones desenhados em código =================
     static class Icons {
-        static final int WIFI = 0, HEAD = 1, HOME = 2, CHAT = 3, BAG = 4, LIB = 5, FACE = 6, PAD = 7, GEAR = 8, COIN = 9, CAL = 10, CLOCK = 11;
+        static final int WIFI = 0, HEAD = 1, HOME = 2, CHAT = 3, BAG = 4, LIB = 5, FACE = 6, PAD = 7, GEAR = 8, COIN = 9, CAL = 10, CLOCK = 11, SCREEN = 12, AUDIO = 13, SAVE = 14, ADV = 15;
 
         static void draw(Canvas c, int t, float x, float y, float r, int col, Paint p) {
             p.setShader(null);
@@ -816,6 +876,54 @@ public class MenuView extends FrameLayout {
                     c.drawCircle(x, y, r * .88f, p);
                     c.drawLine(x, y, x, y - .5f * r, p);
                     c.drawLine(x, y, x + .38f * r, y + .2f * r, p);
+                    break;
+                case SCREEN:
+                    p.setStyle(Paint.Style.STROKE);
+                    p.setStrokeWidth(r * .18f);
+                    q.set(x - .9f * r, y - .75f * r, x + .9f * r, y + .45f * r);
+                    c.drawRoundRect(q, r * .2f, r * .2f, p);
+                    c.drawLine(x, y + .45f * r, x, y + .8f * r, p);
+                    c.drawLine(x - .5f * r, y + .85f * r, x + .5f * r, y + .85f * r, p);
+                    break;
+                case AUDIO: {
+                    p.setStyle(Paint.Style.FILL);
+                    Path sp = new Path();
+                    sp.moveTo(x - .9f * r, y - .3f * r);
+                    sp.lineTo(x - .5f * r, y - .3f * r);
+                    sp.lineTo(x - .05f * r, y - .72f * r);
+                    sp.lineTo(x - .05f * r, y + .72f * r);
+                    sp.lineTo(x - .5f * r, y + .3f * r);
+                    sp.lineTo(x - .9f * r, y + .3f * r);
+                    sp.close();
+                    c.drawPath(sp, p);
+                    p.setStyle(Paint.Style.STROKE);
+                    p.setStrokeWidth(r * .17f);
+                    q.set(x - .05f * r - .5f * r, y - .5f * r, x - .05f * r + .5f * r, y + .5f * r);
+                    c.drawArc(q, -50, 100, false, p);
+                    q.set(x - .05f * r - .95f * r, y - .95f * r, x - .05f * r + .95f * r, y + .95f * r);
+                    c.drawArc(q, -50, 100, false, p);
+                    break;
+                }
+                case SAVE:
+                    p.setStyle(Paint.Style.STROKE);
+                    p.setStrokeWidth(r * .17f);
+                    q.set(x - .85f * r, y - .85f * r, x + .85f * r, y + .85f * r);
+                    c.drawRoundRect(q, r * .18f, r * .18f, p);
+                    q.set(x - .45f * r, y - .85f * r, x + .4f * r, y - .3f * r);
+                    c.drawRect(q, p);
+                    q.set(x - .5f * r, y + .1f * r, x + .5f * r, y + .85f * r);
+                    c.drawRect(q, p);
+                    break;
+                case ADV:
+                    p.setStyle(Paint.Style.STROKE);
+                    p.setStrokeWidth(r * .17f);
+                    c.drawLine(x - .85f * r, y - .55f * r, x + .85f * r, y - .55f * r, p);
+                    c.drawLine(x - .85f * r, y, x + .85f * r, y, p);
+                    c.drawLine(x - .85f * r, y + .55f * r, x + .85f * r, y + .55f * r, p);
+                    p.setStyle(Paint.Style.FILL);
+                    c.drawCircle(x - .35f * r, y - .55f * r, r * .24f, p);
+                    c.drawCircle(x + .4f * r, y, r * .24f, p);
+                    c.drawCircle(x - .1f * r, y + .55f * r, r * .24f, p);
                     break;
                 case COIN:
                     p.setStyle(Paint.Style.FILL);
