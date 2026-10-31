@@ -2,29 +2,24 @@ package org.gbamax.emu;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.content.res.Configuration;
 import android.database.Cursor;
-import android.graphics.Color;
 import android.media.AudioAttributes;
 import android.media.AudioFormat;
 import android.media.AudioTrack;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.DocumentsContract;
-import android.view.Gravity;
 import android.view.View;
 import android.view.WindowManager;
-import android.widget.ArrayAdapter;
-import android.widget.Button;
 import android.widget.FrameLayout;
-import android.widget.LinearLayout;
-import android.widget.ListView;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -33,12 +28,8 @@ import java.util.concurrent.locks.LockSupport;
 public class MainActivity extends Activity {
     GameView gv;
     FrameLayout root;
-    LinearLayout menu;
-    TextView info;
-    ListView lv;
-    ArrayAdapter<String> ad;
-    final List<String> names = new ArrayList<>();
-    final List<Uri> uris = new ArrayList<>();
+    MenuView mv;
+    Uri dirUri;
 
     Thread th;
     volatile boolean run;
@@ -54,51 +45,27 @@ public class MainActivity extends Activity {
         gv = new GameView(this);
         gv.onRom = this::showMenu;
         gv.setVisibility(View.GONE);
-        buildMenu();
+        mv = new MenuView(this, new MenuView.Host() {
+            @Override public void play(MenuView.Game g) { playGame(g); }
+            @Override public void pickDir() { chooseDir(); }
+            @Override public void refresh() { if (dirUri != null) scan(dirUri); }
+        });
         root.addView(gv);
-        root.addView(menu);
+        root.addView(mv);
         setContentView(root);
+
         ready = Native.init(getApplicationInfo().nativeLibraryDir + "/libmgba_core.so",
                 getFilesDir().getAbsolutePath());
         if (!ready) toast("Core mGBA não encontrado");
         String d = getPreferences(0).getString("dir", null);
-        if (d != null) scan(Uri.parse(d));
+        if (d != null) { dirUri = Uri.parse(d); scan(dirUri); }
+        else mv.setGames(new ArrayList<MenuView.Game>(), null, false);
     }
 
-    int dp(int v) { return (int) (v * getResources().getDisplayMetrics().density); }
-
-    void buildMenu() {
-        menu = new LinearLayout(this);
-        menu.setOrientation(LinearLayout.VERTICAL);
-        menu.setBackgroundColor(Color.BLACK);
-        int pd = dp(16);
-        menu.setPadding(pd, pd * 2, pd, pd);
-
-        TextView t = new TextView(this);
-        t.setText("GBA-MAX");
-        t.setTextSize(28);
-        t.setTextColor(Color.WHITE);
-        t.setGravity(Gravity.CENTER);
-
-        Button bt = new Button(this);
-        bt.setText("Selecionar pasta de ROMs");
-        bt.setOnClickListener(v -> pickDir());
-
-        info = new TextView(this);
-        info.setTextColor(0xFFAAAAAA);
-        info.setText("Escolha a pasta onde estão seus jogos .zip");
-        info.setPadding(0, pd / 2, 0, pd / 2);
-
-        lv = new ListView(this);
-        ad = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, names);
-        lv.setAdapter(ad);
-        lv.setOnItemClickListener((p, v, i, id) -> play(uris.get(i)));
-
-        menu.addView(t);
-        menu.addView(bt);
-        menu.addView(info);
-        menu.addView(lv, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
+    @Override
+    public void onConfigurationChanged(Configuration c) {
+        super.onConfigurationChanged(c);
+        mv.relayout();
     }
 
     @Override
@@ -112,7 +79,7 @@ public class MainActivity extends Activity {
 
     void toast(String s) { Toast.makeText(this, s, Toast.LENGTH_LONG).show(); }
 
-    void pickDir() {
+    void chooseDir() {
         Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
         i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
                 | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
@@ -127,28 +94,25 @@ public class MainActivity extends Activity {
         try { getContentResolver().takePersistableUriPermission(u, Intent.FLAG_GRANT_READ_URI_PERMISSION); }
         catch (Exception e) { }
         getPreferences(0).edit().putString("dir", u.toString()).apply();
+        dirUri = u;
         scan(u);
     }
 
-    // lista só os .zip da pasta (e subpastas, até 3 níveis)
+    // lista só os .zip (e capas .png/.jpg com o mesmo nome) da pasta e subpastas
     void scan(Uri tree) {
-        TreeMap<String, Uri> m = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+        TreeMap<String, MenuView.Game> m = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+        Map<String, Uri> im = new HashMap<>();
+        boolean ok = true;
         try {
-            walk(tree, DocumentsContract.getTreeDocumentId(tree), m, 0);
-        } catch (Exception e) {
-            names.clear(); uris.clear();
-            ad.notifyDataSetChanged();
-            info.setText("Não consegui ler a pasta. Selecione de novo.");
-            return;
-        }
-        names.clear(); uris.clear();
-        for (Map.Entry<String, Uri> e : m.entrySet()) { names.add(e.getKey()); uris.add(e.getValue()); }
-        ad.notifyDataSetChanged();
-        info.setText(names.isEmpty() ? "Nenhum jogo .zip encontrado nesta pasta"
-                : names.size() + " jogos (.zip) — toque para jogar");
+            walk(tree, DocumentsContract.getTreeDocumentId(tree), m, im, 0);
+        } catch (Exception e) { ok = false; }
+        List<MenuView.Game> l = new ArrayList<>(m.values());
+        for (MenuView.Game g : l) g.cover = im.get(g.name.toLowerCase());
+        mv.setGames(l, getPreferences(0).getString("last", null), true);
+        if (!ok) toast("Não consegui ler a pasta. Selecione de novo.");
     }
 
-    void walk(Uri tree, String id, Map<String, Uri> m, int depth) {
+    void walk(Uri tree, String id, Map<String, MenuView.Game> m, Map<String, Uri> im, int depth) {
         Uri ch = DocumentsContract.buildChildDocumentsUriUsingTree(tree, id);
         try (Cursor c = getContentResolver().query(ch, new String[]{
                 DocumentsContract.Document.COLUMN_DOCUMENT_ID,
@@ -157,18 +121,32 @@ public class MainActivity extends Activity {
             if (c == null) return;
             while (c.moveToNext()) {
                 String did = c.getString(0), n = c.getString(1), mt = c.getString(2);
+                if (n == null) continue;
                 if (DocumentsContract.Document.MIME_TYPE_DIR.equals(mt)) {
-                    if (depth < 3) walk(tree, did, m, depth + 1);
-                } else if (n != null && n.toLowerCase().endsWith(".zip")) {
-                    m.put(n.substring(0, n.length() - 4), DocumentsContract.buildDocumentUriUsingTree(tree, did));
+                    if (depth < 3) walk(tree, did, m, im, depth + 1);
+                    continue;
+                }
+                String low = n.toLowerCase();
+                int dot = n.lastIndexOf('.');
+                if (dot <= 0) continue;
+                String base = n.substring(0, dot);
+                Uri u = DocumentsContract.buildDocumentUriUsingTree(tree, did);
+                if (low.endsWith(".zip")) {
+                    MenuView.Game g = new MenuView.Game();
+                    g.name = base;
+                    g.uri = u;
+                    m.put(base, g);
+                } else if (low.endsWith(".png") || low.endsWith(".jpg") || low.endsWith(".jpeg") || low.endsWith(".webp")) {
+                    im.put(base.toLowerCase(), u);
                 }
             }
         }
     }
 
-    void play(Uri u) {
+    void playGame(MenuView.Game g) {
         if (!ready) { toast("Core mGBA não encontrado"); return; }
-        try { open(u); } catch (Exception e) { toast("Erro ao abrir: " + e.getMessage()); }
+        getPreferences(0).edit().putString("last", g.name).apply();
+        try { open(g.uri); } catch (Exception e) { toast("Erro ao abrir: " + e.getMessage()); }
     }
 
     void open(Uri u) throws Exception {
@@ -186,7 +164,7 @@ public class MainActivity extends Activity {
         Native.loadSram(sav);
         loaded = true;
         inGame = true;
-        menu.setVisibility(View.GONE);
+        mv.setVisibility(View.GONE);
         gv.setVisibility(View.VISIBLE);
         start();
     }
@@ -197,7 +175,7 @@ public class MainActivity extends Activity {
         inGame = false;
         gv.touch = 0; gv.ta = false; gv.tb = false;
         gv.setVisibility(View.GONE);
-        menu.setVisibility(View.VISIBLE);
+        mv.setVisibility(View.VISIBLE);
     }
 
     @Override
