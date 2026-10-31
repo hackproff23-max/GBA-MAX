@@ -1,6 +1,7 @@
 package org.gbamax.emu;
 
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -52,6 +53,11 @@ public class GameView extends View {
     // posição da tela antes de ativar a tela cheia
     float psx, psy, psr;
     final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+    // imagens personalizadas dos botões (GBA-MAX/Personalizar/Botoes); null = desenho padrão
+    final Bitmap[] skB = new Bitmap[15], skOn = new Bitmap[15];
+    Bitmap skDpad, skAnalog, skKnob;
+    final Paint bp = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+    final RectF sr = new RectF();
     final Path path = new Path();
     final RectF scr = new RectF();
     final RectF tmp = new RectF();
@@ -90,6 +96,20 @@ public class GameView extends View {
         den = c.getResources().getDisplayMetrics().density;
         slop = ViewConfiguration.get(c).getScaledTouchSlop();
         p.setTextAlign(Paint.Align.CENTER);
+        try { loadSkin(c); } catch (Throwable t) { }
+    }
+
+    /** Carrega as imagens personalizadas dos botões (se houver). */
+    void loadSkin(Context c) {
+        java.io.File d = Personalizar.botoes(c);
+        for (int i = 0; i < 15; i++) {
+            skB[i] = Personalizar.bmp(d, Personalizar.KEYS[i]);
+            skOn[i] = Personalizar.bmp(d, Personalizar.KEYS[i] + "_on");
+        }
+        skDpad = Personalizar.bmp(d, Personalizar.DPAD);
+        skAnalog = Personalizar.bmp(d, Personalizar.ANALOG);
+        skKnob = Personalizar.bmp(d, Personalizar.KNOB);
+        postInvalidate();
     }
 
     int mask(int frame) {
@@ -424,6 +444,12 @@ public class GameView extends View {
     }
 
     void drawCross(Canvas c, boolean h) {
+        if (skDpad != null) {
+            bp.setAlpha(h ? 90 : 255);
+            sr.set(ccx - cr, ccy - cr, ccx + cr, ccy + cr);
+            c.drawBitmap(skDpad, null, sr, bp);
+            return;
+        }
         float w = cr * 0.33f, L = cr;
         path.reset();
         path.moveTo(ccx - w, ccy - L);
@@ -465,18 +491,40 @@ public class GameView extends View {
         p.setStrokeWidth(3);
         if (!isHid(DPAD) || ed) {
             boolean h = isHid(DPAD);
-            p.setStyle(Paint.Style.STROKE);
-            p.setColor(h ? 0x44FFFFFF : 0x88FFFFFF);
-            c.drawCircle(dcx, dcy, dr, p);
-            p.setStyle(Paint.Style.FILL);
-            p.setColor(h ? 0x22FFFFFF : knob ? 0x88FFFFFF : 0x33FFFFFF);
-            c.drawCircle(!h && knob ? kx : dcx, !h && knob ? ky : dcy, dr * 0.4f, p);
+            float kcx = !h && knob ? kx : dcx, kcy = !h && knob ? ky : dcy;
+            if (skAnalog != null) {
+                bp.setAlpha(h ? 90 : 255);
+                sr.set(dcx - dr, dcy - dr, dcx + dr, dcy + dr);
+                c.drawBitmap(skAnalog, null, sr, bp);
+            } else {
+                p.setStyle(Paint.Style.STROKE);
+                p.setColor(h ? 0x44FFFFFF : 0x88FFFFFF);
+                c.drawCircle(dcx, dcy, dr, p);
+            }
+            if (skKnob != null) {
+                bp.setAlpha(h ? 90 : 255);
+                float kr = dr * 0.4f;
+                sr.set(kcx - kr, kcy - kr, kcx + kr, kcy + kr);
+                c.drawBitmap(skKnob, null, sr, bp);
+            } else {
+                p.setStyle(Paint.Style.FILL);
+                p.setColor(h ? 0x22FFFFFF : knob ? 0x88FFFFFF : 0x33FFFFFF);
+                c.drawCircle(kcx, kcy, dr * 0.4f, p);
+            }
         }
         if (!isHid(DPC) || ed) drawCross(c, isHid(DPC));
         for (int i = 0; i < 15; i++) {
             boolean h = isHid(i);
             if (h && !ed) continue;
             boolean on = !h && (((pressed >> i) & 1) != 0 || (COD[i] == FF && ff));
+            Bitmap sk = on && skOn[i] != null ? skOn[i] : skB[i];
+            if (sk != null) {
+                float rr = on && skOn[i] == null ? pr[i] * 0.92f : pr[i];
+                bp.setAlpha(h ? 90 : 255);
+                sr.set(px[i] - rr, py[i] - rr, px[i] + rr, py[i] + rr);
+                c.drawBitmap(sk, null, sr, bp);
+                continue;
+            }
             p.setStyle(Paint.Style.FILL);
             p.setColor(h ? 0x22FFFFFF : on ? 0x88FFFFFF : 0x33FFFFFF);
             c.drawCircle(px[i], py[i], pr[i], p);

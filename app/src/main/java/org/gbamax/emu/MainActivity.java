@@ -140,9 +140,71 @@ public class MainActivity extends Activity {
             if (d != null) { dirUri = Uri.parse(d); scan(dirUri); }
             else mv.setGames(new ArrayList<MenuView.Game>(), null, false);
             ensureFolder();
+            aplicarFundo();
+            mostrarAbertura(false);
         } catch (Throwable t) {
             showError(trace(t));
         }
+    }
+
+    // ================= personalizar: botões, fundo e abertura =================
+    String pendingKey;
+    boolean introShown;
+
+    void pickFiles(int req, boolean multi, String... mimes) {
+        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        i.addCategory(Intent.CATEGORY_OPENABLE);
+        i.setType("*/*");
+        if (mimes != null && mimes.length > 0) i.putExtra(Intent.EXTRA_MIME_TYPES, mimes);
+        if (multi) i.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+        try { startActivityForResult(i, req); } catch (Throwable e) { toast("Não consegui abrir o seletor de arquivos"); }
+    }
+
+    void personalizarResult(final int req, Intent d) {
+        final List<Uri> us = new ArrayList<>();
+        ClipData cd = d.getClipData();
+        if (cd != null) { for (int k = 0; k < cd.getItemCount(); k++) us.add(cd.getItemAt(k).getUri()); }
+        else if (d.getData() != null) us.add(d.getData());
+        if (us.isEmpty()) return;
+        final String key = pendingKey;
+        new Thread(() -> {
+            String msg;
+            try {
+                if (req == 4) msg = Personalizar.importarBotoes(this, us);
+                else if (req == 7) msg = Personalizar.importarUmBotao(this, us.get(0), key);
+                else if (req == 5) msg = Personalizar.importarFundo(this, us.get(0));
+                else msg = Personalizar.importarAbertura(this, us.get(0));
+            } catch (Throwable t) {
+                msg = "Não foi possível importar";
+            }
+            final String m = msg;
+            runOnUiThread(() -> {
+                if (gv != null) gv.loadSkin(this);
+                aplicarFundo();
+                toast(m);
+            });
+        }).start();
+    }
+
+    void aplicarFundo() {
+        if (mv == null) return;
+        Bitmap b = null;
+        try {
+            File f = Personalizar.fundo(this);
+            if (f != null) b = Personalizar.decodeMax(f, 1800);
+        } catch (Throwable t) { }
+        mv.setCustomBg(b);
+    }
+
+    /** Abertura do app (png, gif ou vídeo de até 10 s). force = teste pelo menu. */
+    void mostrarAbertura(boolean force) {
+        if (root == null || (introShown && !force)) return;
+        introShown = true;
+        try {
+            File f = Personalizar.abertura(this);
+            if (f == null) { if (force) toast("Nenhuma abertura definida"); return; }
+            root.addView(new Abertura(this, f), new FrameLayout.LayoutParams(-1, -1));
+        } catch (Throwable t) { }
     }
 
     void showError(String text) {
@@ -339,6 +401,7 @@ public class MainActivity extends Activity {
     protected void onActivityResult(int req, int res, Intent d) {
         if (res != RESULT_OK || d == null) return;
         if (req == 3) { importResult(d); return; }
+        if (req >= 4 && req <= 7) { personalizarResult(req, d); return; }
         if (d.getData() == null) return;
         Uri u = d.getData();
         try { getContentResolver().takePersistableUriPermission(u, Intent.FLAG_GRANT_READ_URI_PERMISSION); }
@@ -481,6 +544,7 @@ public class MainActivity extends Activity {
         loaded = true;
         autoNs = 0;
         VideoSettings.openGame(this, nome); // configurações próprias do jogo (.json)
+        if (gv != null) gv.loadSkin(this);
         if (gl != null) gl.reloadShader();
         aplicarCheats(nome);
         inGame = true;

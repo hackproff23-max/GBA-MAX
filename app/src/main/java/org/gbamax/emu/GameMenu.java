@@ -362,7 +362,11 @@ class GameMenu {
                     a.resetGame();
                     closeAll();
                 })), lp());
-        advD = pageDialog("Avançado", l, 3, null);
+        l.addView(row(MenuView.Icons.FACE, 0xFF7E57C2, "Personalizar", "Botões, fundo do app e abertura", () -> {
+            advD.dismiss();
+            Personalizar.show(a);
+        }), lp());
+        advD = pageDialog("Avançado", l, 4, null);
         advD.show();
     }
 

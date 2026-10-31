@@ -74,6 +74,13 @@ public class MenuView extends FrameLayout {
     DotsView dots;
     BatteryView bat;
     LinearLayout top, dock;
+    Bg bgView;
+    Bitmap customBg; // fundo personalizado (GBA-MAX/Personalizar/fundo.png)
+
+    void setCustomBg(Bitmap b) {
+        customBg = b;
+        if (bgView != null) bgView.invalidate();
+    }
 
     final LruCache<String, Bitmap> cache = new LruCache<>(60);
     final Set<String> busy = Collections.synchronizedSet(new HashSet<String>());
@@ -113,7 +120,8 @@ public class MenuView extends FrameLayout {
         host = h;
         den = c.getResources().getDisplayMetrics().density;
 
-        addView(new Bg(c), new LayoutParams(-1, -1));
+        bgView = new Bg(c);
+        addView(bgView, new LayoutParams(-1, -1));
 
         // ---------- biblioteca ----------
         grid = new GridView(c);
@@ -362,8 +370,11 @@ public class MenuView extends FrameLayout {
                 d.dismiss();
                 if (k == 4) {
                     new AlertDialog.Builder(c).setTitle("Avançado")
-                            .setItems(new String[]{"Selecionar pasta de ROMs", "Atualizar lista"}, (d2, w) -> {
-                                if (w == 0) host.pickDir(); else host.refresh();
+                            .setItems(new String[]{"Selecionar pasta de ROMs", "Atualizar lista",
+                                    "Personalizar (botões, fundo, abertura)"}, (d2, w) -> {
+                                if (w == 0) host.pickDir();
+                                else if (w == 1) host.refresh();
+                                else if (c instanceof MainActivity) Personalizar.show((MainActivity) c);
                             }).show();
                 } else if (k == 0) new VideoMenu(MenuView.this).show();
                 else toast("Em breve");
@@ -573,6 +584,18 @@ public class MenuView extends FrameLayout {
 
         @Override protected void onDraw(Canvas c) {
             float w = getWidth(), h = getHeight();
+            Bitmap cb = customBg;
+            if (cb != null && w > 0 && h > 0) {
+                float s = Math.max(w / cb.getWidth(), h / cb.getHeight());
+                float sw = w / s, sh = h / s;
+                android.graphics.Rect src = new android.graphics.Rect((int) ((cb.getWidth() - sw) / 2), (int) ((cb.getHeight() - sh) / 2),
+                        (int) ((cb.getWidth() + sw) / 2), (int) ((cb.getHeight() + sh) / 2));
+                p.setShader(null);
+                p.setStyle(Paint.Style.FILL);
+                p.setFilterBitmap(true);
+                c.drawBitmap(cb, src, new RectF(0, 0, w, h), p);
+                return;
+            }
             p.setStyle(Paint.Style.FILL);
             p.setShader(new LinearGradient(0, 0, w * .4f, h, 0xFFF8FAFD, 0xFFDCE3EE, Shader.TileMode.CLAMP));
             c.drawRect(0, 0, w, h, p);
