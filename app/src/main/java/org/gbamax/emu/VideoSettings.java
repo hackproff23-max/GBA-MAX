@@ -41,6 +41,8 @@ public class VideoSettings {
     public static volatile boolean vibrate = false;
     // avançado
     public static volatile int ffSpeed = 4;    // velocidade do avanço rápido
+    // retomar de onde parou: ao sair do jogo guarda o estado e ao abrir volta nele
+    public static volatile boolean resume = true;
 
     /** Nome do jogo aberto (null = fora do jogo, usa as configurações padrão). */
     public static volatile String game = null;
@@ -64,6 +66,7 @@ public class VideoSettings {
         ctlAlpha = p.getInt("ctlAlpha", 100);
         vibrate = p.getBoolean("vibrate", false);
         ffSpeed = p.getInt("ffSpeed", 4);
+        resume = p.getBoolean("resume", true);
     }
 
     public static void save(Context c) {
@@ -77,7 +80,7 @@ public class VideoSettings {
                 .putInt("gamma", gamma).putInt("lcd", lcd)
                 .putInt("volume", volume).putBoolean("mute", mute).putInt("abuf", abuf)
                 .putInt("ctlAlpha", ctlAlpha).putBoolean("vibrate", vibrate)
-                .putInt("ffSpeed", ffSpeed).apply();
+                .putInt("ffSpeed", ffSpeed).putBoolean("resume", resume).apply();
     }
 
     // ================= configuração própria de cada jogo (.json) =================
@@ -122,6 +125,7 @@ public class VideoSettings {
             o.put("ctlAlpha", ctlAlpha);
             o.put("vibrate", vibrate);
             o.put("ffSpeed", ffSpeed);
+            o.put("resume", resume);
             if (gLayoutP != null) o.put("layout_p", gLayoutP);
             if (gLayoutL != null) o.put("layout_l", gLayoutL);
             try (OutputStream w = new FileOutputStream(f)) {
@@ -156,6 +160,7 @@ public class VideoSettings {
             ctlAlpha = o.optInt("ctlAlpha", ctlAlpha);
             vibrate = o.optBoolean("vibrate", vibrate);
             ffSpeed = o.optInt("ffSpeed", ffSpeed);
+            resume = o.optBoolean("resume", resume);
             if (o.has("layout_p")) gLayoutP = o.getString("layout_p");
             if (o.has("layout_l")) gLayoutL = o.getString("layout_l");
         } catch (Exception e) { }

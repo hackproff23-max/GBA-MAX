@@ -2,11 +2,16 @@ package org.gbamax.emu;
 
 import android.app.Dialog;
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Color;
+import android.graphics.Outline;
 import android.graphics.drawable.GradientDrawable;
 import android.util.DisplayMetrics;
 import android.view.Gravity;
 import android.view.View;
+import android.view.ViewOutlineProvider;
+import android.widget.ImageView;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -81,6 +86,21 @@ class GameMenu {
     }
 
     LinearLayout row(int icon, int bg, String t, String sub, final Runnable r) {
+        return row(null, icon, bg, t, sub, r);
+    }
+
+    /** Miniatura do estado (imagem sem extensão ao lado dele), ou null se não houver. */
+    Bitmap thumb(int slot) {
+        try {
+            File f = new File(a.thumbPath(slot));
+            if (!f.isFile() || !new File(a.statePath(slot)).isFile()) return null;
+            return BitmapFactory.decodeFile(f.getAbsolutePath());
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    LinearLayout row(Bitmap tb, int icon, int bg, String t, String sub, final Runnable r) {
         LinearLayout row = new LinearLayout(c);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
@@ -90,7 +110,20 @@ class GameMenu {
         rg.setCornerRadius(dp(16));
         rg.setStroke(dp(1), 0xCCFFFFFF);
         row.setBackground(rg);
-        row.addView(mv.new DockBtn(c, icon, bg, Color.WHITE, false), new LinearLayout.LayoutParams(dp(44), dp(44)));
+        if (tb != null) {
+            ImageView iv = new ImageView(c);
+            iv.setImageBitmap(tb);
+            iv.setScaleType(ImageView.ScaleType.FIT_XY);
+            iv.setOutlineProvider(new ViewOutlineProvider() {
+                @Override public void getOutline(View v, Outline o) {
+                    o.setRoundRect(0, 0, v.getWidth(), v.getHeight(), dp(6));
+                }
+            });
+            iv.setClipToOutline(true);
+            row.addView(iv, new LinearLayout.LayoutParams(dp(66), dp(44)));
+        } else {
+            row.addView(mv.new DockBtn(c, icon, bg, Color.WHITE, false), new LinearLayout.LayoutParams(dp(44), dp(44)));
+        }
         LinearLayout col = new LinearLayout(c);
         col.setOrientation(LinearLayout.VERTICAL);
         col.addView(mv.label(t, 14, 0xFF1B1F27, true));
@@ -166,7 +199,7 @@ class GameMenu {
         list.setOrientation(LinearLayout.VERTICAL);
         list.addView(row(MenuView.Icons.FACE, 0xFFE91E63, "Cores", "Shader, LCD, brilho, contraste...", this::openCores), lp());
         list.addView(row(MenuView.Icons.SAVE, 0xFF2EAD4B, "Salvar estado", "5 slots manuais", () -> slots(true)), lp());
-        list.addView(row(MenuView.Icons.LIB, 0xFF1E6BE6, "Carregar estado", "3 automáticos + 5 manuais", () -> slots(false)), lp());
+        list.addView(row(MenuView.Icons.LIB, 0xFF1E6BE6, "Carregar estado", "Retomar, 3 automáticos + 5 manuais", () -> slots(false)), lp());
         list.addView(row(MenuView.Icons.GEAR, 0xFF3A3C42, "Opções", "Vídeo, áudio, controle e avançado", this::options), lp());
         ScrollView sv = new ScrollView(c);
         sv.setVerticalScrollBarEnabled(false);
@@ -214,15 +247,21 @@ class GameMenu {
                 File f = new File(a.statePath(slot));
                 String sub = f.isFile() ? df.format(new Date(f.lastModified())) : "Vazio";
                 if (s == newest) sub += "  (mais recente)";
-                l.addView(row(MenuView.Icons.LIB, 0xFFFFA000, "Automático " + s, sub, () -> doState(false, slot)), lp());
+                l.addView(row(thumb(slot), MenuView.Icons.LIB, 0xFFFFA000, "Automático " + s, sub, () -> doState(false, slot)), lp());
             }
             rows = 8;
+            File rf = new File(a.statePath(MainActivity.RETOMAR));
+            if (rf.isFile()) {
+                l.addView(row(thumb(MainActivity.RETOMAR), MenuView.Icons.LIB, 0xFF7E57C2, "Retomar (ao sair)",
+                        df.format(new Date(rf.lastModified())), () -> doState(false, MainActivity.RETOMAR)), 0, lp());
+                rows = 9;
+            }
         }
         for (int s = 1; s <= 5; s++) {
             final int slot = s;
             File f = new File(a.statePath(s));
             String sub = f.exists() ? df.format(new Date(f.lastModified())) : "Vazio";
-            l.addView(row(save ? MenuView.Icons.SAVE : MenuView.Icons.LIB, save ? 0xFF2EAD4B : 0xFF1E6BE6,
+            l.addView(row(thumb(slot), save ? MenuView.Icons.SAVE : MenuView.Icons.LIB, save ? 0xFF2EAD4B : 0xFF1E6BE6,
                     "Manual " + s, sub, () -> doState(save, slot)), lp());
         }
         pageDialog(save ? "Salvar estado" : "Carregar estado", l, rows, null).show();
@@ -230,9 +269,9 @@ class GameMenu {
 
     void doState(boolean save, int slot) {
         String path = a.statePath(slot);
-        String nome = slot > 100 ? "automático " + (slot - 100) : "manual " + slot;
+        String nome = slot == MainActivity.RETOMAR ? "retomar" : slot > 100 ? "automático " + (slot - 100) : "manual " + slot;
         if (save) {
-            boolean ok = Native.saveState(path);
+            boolean ok = a.saveStateImg(slot);
             toast(ok ? "Estado salvo no slot " + nome : "Não foi possível salvar o estado");
             if (ok) closeAll();
         } else {
@@ -254,7 +293,12 @@ class GameMenu {
         l.addView(row(MenuView.Icons.AUDIO, 0xFFFFA000, "Áudio", "Volume, mudo e buffer", this::audio), lp());
         l.addView(row(MenuView.Icons.PAD, 0xFF7E57C2, "Controle", "Opacidade, vibração e layout", this::control), lp());
         l.addView(row(MenuView.Icons.ADV, 0xFF3A3C42, "Avançado", "Avanço rápido, quadros e reiniciar", this::advanced), lp());
-        pageDialog("Opções", l, 4, null).show();
+        l.addView(toggle("Retomar de onde parou", VideoSettings.resume, on -> {
+            VideoSettings.resume = on;
+            if (!on) a.clearResume();
+            VideoSettings.save(c);
+        }), lp());
+        pageDialog("Opções", l, 5, null).show();
     }
 
     void audio() {

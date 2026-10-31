@@ -8,6 +8,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.database.Cursor;
+import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.media.AudioAttributes;
@@ -31,6 +32,7 @@ import android.widget.Toast;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.InputStream;
 import java.io.PrintWriter;
@@ -410,6 +412,7 @@ public class MainActivity extends Activity {
         File dSaves = Pastas.dir(this, Pastas.SAVES);
         if (dSaves != null) {
             stBase = new File(dSaves, nome).getAbsolutePath();
+            try { new File(dSaves, ".nomedia").createNewFile(); } catch (Exception e) { }
             for (int s = 1; s <= 5; s++) migrar(new File(velho + ".st" + s), new File(stBase + ".st" + s));
         }
     }
@@ -479,6 +482,13 @@ public class MainActivity extends Activity {
         mv.setVisibility(View.GONE);
         gl.setVisibility(View.VISIBLE);
         gv.setVisibility(View.VISIBLE);
+        if (VideoSettings.resume) {
+            File rf = new File(statePath(RETOMAR));
+            if (rf.isFile() && Native.loadState(rf.getAbsolutePath())) {
+                afterLoadState();
+                toast("Retomando de onde você parou");
+            }
+        }
         start();
     }
 
@@ -507,8 +517,49 @@ public class MainActivity extends Activity {
     }
 
     // slots 1..5 = manuais (.st1..5); slots 101..103 = automáticos (.auto1..3)
+    // slot 200 = retomar de onde parou (.resume)
+    static final int RETOMAR = 200;
+
     String statePath(int slot) {
+        if (slot == RETOMAR) return stBase + ".resume";
         return slot > 100 ? stBase + ".auto" + (slot - 100) : stBase + ".st" + slot;
+    }
+
+    /** Miniatura do estado: imagem SEM extensão (assim a galeria do celular não a mostra). */
+    String thumbPath(int slot) {
+        if (slot == RETOMAR) return stBase + "-retomar";
+        return slot > 100 ? stBase + "-auto" + (slot - 100) : stBase + "-img" + slot;
+    }
+
+    /** Grava a imagem atual do jogo ao lado do estado (JPEG, sem extensão no nome). */
+    void saveThumb(int slot) {
+        try {
+            Bitmap b = Bitmap.createBitmap(240, 160, Bitmap.Config.ARGB_8888);
+            Native.draw(b);
+            try (FileOutputStream o = new FileOutputStream(thumbPath(slot))) {
+                b.compress(Bitmap.CompressFormat.JPEG, 90, o);
+            }
+            b.recycle();
+        } catch (Throwable t) { }
+    }
+
+    /** Salva o estado e, se der certo, a imagem dele. */
+    boolean saveStateImg(int slot) {
+        if (!Native.saveState(statePath(slot))) return false;
+        saveThumb(slot);
+        return true;
+    }
+
+    /** Guarda o ponto onde o jogador está para retomar depois. */
+    void saveResume() {
+        if (!loaded || !inGame || stBase == null || !VideoSettings.resume) return;
+        try { saveStateImg(RETOMAR); } catch (Throwable t) { }
+    }
+
+    void clearResume() {
+        if (stBase == null) return;
+        new File(statePath(RETOMAR)).delete();
+        new File(thumbPath(RETOMAR)).delete();
     }
 
     /** Salvamento automático: 3 slots em rodízio, sempre sobrescreve o mais antigo. */
@@ -521,7 +572,7 @@ public class MainActivity extends Activity {
             long m = f.isFile() ? f.lastModified() : 0;
             if (m < old) { old = m; best = i; }
         }
-        if (Native.saveState(statePath(100 + best)))
+        if (saveStateImg(100 + best))
             runOnUiThread(() -> Toast.makeText(this, "Salvamento automático", Toast.LENGTH_SHORT).show());
     }
 
@@ -545,6 +596,7 @@ public class MainActivity extends Activity {
         menuOpen = false;
         stop();
         save();
+        saveResume();                  // guarda onde parou para retomar
         VideoSettings.save(this);      // grava o .json do jogo
         VideoSettings.closeGame(this); // volta às configurações padrão
         if (gl != null) gl.reloadShader();
@@ -674,7 +726,7 @@ public class MainActivity extends Activity {
         }
     }
 
-    @Override protected void onPause() { super.onPause(); stop(); save(); if (gl != null) gl.onPause(); }
+    @Override protected void onPause() { super.onPause(); stop(); save(); saveResume(); if (gl != null) gl.onPause(); }
     @Override protected void onResume() {
         super.onResume();
         if (gl != null) gl.onResume();
@@ -682,5 +734,5 @@ public class MainActivity extends Activity {
         ensureFolder();
         if (inGame && !menuOpen) start();
     }
-    @Override protected void onDestroy() { super.onDestroy(); stop(); save(); }
+    @Override protected void onDestroy() { super.onDestroy(); stop(); save(); saveResume(); }
 }
