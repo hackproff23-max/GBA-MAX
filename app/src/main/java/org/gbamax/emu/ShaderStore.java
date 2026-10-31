@@ -28,16 +28,38 @@ import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
-/** Shaders locais, importação e download do repositório libretro. */
+/** Shaders locais, importação e download do repositório libretro. Ficam em GBA-MAX/Shaders. */
 final class ShaderStore {
     static final String[] REPOS = {"libretro/glsl-shaders", "libretro/slang-shaders"};
     static final String[] TAGS = {"glsl", "slang"};
     static final Pattern INC = Pattern.compile("^\\s*#include\\s+\"([^\"]+)\"");
 
+    /** GBA-MAX/Shaders; sem acesso ao armazenamento, usa a pasta interna do app. */
     static File root(Context c) {
-        File f = new File(c.getFilesDir(), "shaders");
-        f.mkdirs();
+        File f = Pastas.dir(c, Pastas.SHADERS);
+        File velho = new File(c.getFilesDir(), "shaders");
+        if (f == null) {
+            velho.mkdirs();
+            return velho;
+        }
+        if (velho.isDirectory()) mover(velho, f, 0); // leva os shaders antigos para a pasta nova
         return f;
+    }
+
+    static void mover(File de, File para, int depth) {
+        File[] a = de.listFiles();
+        if (a != null && depth < 12) {
+            for (File x : a) {
+                File d = new File(para, x.getName());
+                if (x.isDirectory()) {
+                    d.mkdirs();
+                    mover(x, d, depth + 1);
+                } else if (d.exists() || Pastas.copiar(x, d)) {
+                    x.delete();
+                }
+            }
+        }
+        de.delete(); // só apaga se ficou vazia
     }
 
     static boolean isPreset(String n) {
@@ -178,7 +200,7 @@ final class ShaderStore {
         throw last != null ? last : new IOException("sem resposta");
     }
 
-    /** Baixa o arquivo e tudo que ele referencia. Devolve o caminho relativo dentro de shaders/. */
+    /** Baixa o arquivo e tudo que ele referencia. Devolve o caminho relativo dentro de Shaders/. */
     static String download(Context c, int repoIdx, String branch, String path) throws IOException {
         File base = new File(root(c), TAGS[repoIdx]);
         fetch(base, REPOS[repoIdx], branch, path, new HashSet<String>(), 0, true);

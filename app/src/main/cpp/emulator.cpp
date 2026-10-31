@@ -28,6 +28,8 @@ static size_t (*f_ssz)(void);
 static bool (*f_ser)(void*, size_t);
 static bool (*f_unser)(const void*, size_t);
 static void (*f_reset)(void);
+static void (*f_chr)(void);
+static void (*f_chs)(unsigned, bool, const char*);
 
 static std::mutex vm, am;
 static std::vector<uint32_t> frame;
@@ -112,6 +114,7 @@ JNIEXPORT jboolean JNICALL Java_org_gbamax_emu_Native_init(JNIEnv* e, jclass, js
     SYM(f_mem, "retro_get_memory_data"); SYM(f_msz, "retro_get_memory_size");
     SYM(f_ssz, "retro_serialize_size"); SYM(f_ser, "retro_serialize");
     SYM(f_unser, "retro_unserialize"); SYM(f_reset, "retro_reset");
+    SYM(f_chr, "retro_cheat_reset"); SYM(f_chs, "retro_cheat_set");
     if (!f_env || !f_init || !f_load || !f_run) return JNI_FALSE;
     f_env(env); f_vid(video); f_as(audio1); f_ab(audioN); f_poll(poll); f_st(input);
     f_init();
@@ -141,6 +144,16 @@ JNIEXPORT void JNICALL Java_org_gbamax_emu_Native_input(JNIEnv*, jclass, jint m)
 JNIEXPORT void JNICALL Java_org_gbamax_emu_Native_setSkip(JNIEnv*, jclass, jboolean s) { skipv = s; }
 JNIEXPORT jdouble JNICALL Java_org_gbamax_emu_Native_rate(JNIEnv*, jclass) { return sr; }
 JNIEXPORT void JNICALL Java_org_gbamax_emu_Native_reset(JNIEnv*, jclass) { if (f_reset) f_reset(); }
+
+// ================= cheats (GameShark / Action Replay / CodeBreaker) =================
+JNIEXPORT void JNICALL Java_org_gbamax_emu_Native_cheatReset(JNIEnv*, jclass) { if (f_chr) f_chr(); }
+
+JNIEXPORT void JNICALL Java_org_gbamax_emu_Native_cheatSet(JNIEnv* e, jclass, jint idx, jboolean on, jstring code) {
+    if (!f_chs) return;
+    const char* c = e->GetStringUTFChars(code, 0);
+    f_chs((unsigned)idx, on == JNI_TRUE, c);
+    e->ReleaseStringUTFChars(code, c);
+}
 
 JNIEXPORT void JNICALL Java_org_gbamax_emu_Native_draw(JNIEnv* e, jclass, jobject bm) {
     AndroidBitmapInfo i;

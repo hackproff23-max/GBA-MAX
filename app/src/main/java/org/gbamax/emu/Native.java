@@ -18,4 +18,6 @@ public class Native {
     static native boolean saveState(String path);
     static native boolean loadState(String path);
     static native void reset();
+    static native void cheatReset();
+    static native void cheatSet(int index, boolean on, String code);
 }

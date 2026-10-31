@@ -5,13 +5,26 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
 
-/** Configurações de vídeo (salvas em SharedPreferences próprio). */
+import org.json.JSONObject;
+
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
+
+/**
+ * Configurações de vídeo/áudio/controle.
+ * Fora do jogo: SharedPreferences (valores padrão).
+ * Dentro do jogo: um arquivo GBA-MAX/Configurações/<nome do jogo>.json com tudo do jogo.
+ */
 public class VideoSettings {
     // 0 = automática, 1 = retrato, 2 = paisagem (vale só dentro do jogo e do editor de layout)
     public static volatile int orient = 0;
     // 0 = desligado; 1..4 = pula N quadros a cada quadro mostrado
     public static volatile int frameskip = 0;
-    // caminho relativo dentro de filesDir/shaders ("" = nenhum)
+    // caminho relativo dentro da pasta Shaders ("" = nenhum)
     public static volatile String shader = "";
     // controle de cores (independente de shader)
     public static volatile int bright = 0;     // -100..100
@@ -28,6 +41,10 @@ public class VideoSettings {
     public static volatile boolean vibrate = false;
     // avançado
     public static volatile int ffSpeed = 4;    // velocidade do avanço rápido
+
+    /** Nome do jogo aberto (null = fora do jogo, usa as configurações padrão). */
+    public static volatile String game = null;
+    static String gLayoutP, gLayoutL;
 
     static SharedPreferences sp(Context c) { return c.getSharedPreferences("gbamax_video", 0); }
 
@@ -50,6 +67,10 @@ public class VideoSettings {
     }
 
     public static void save(Context c) {
+        if (game != null) {
+            File jf = jsonFile(c);
+            if (jf != null && writeJson(jf)) return;
+        }
         sp(c).edit().putInt("orient", orient).putInt("frameskip", frameskip)
                 .putString("shader", shader).putInt("bright", bright)
                 .putInt("contrast", contrast).putInt("sat", sat)
@@ -57,6 +78,87 @@ public class VideoSettings {
                 .putInt("volume", volume).putBoolean("mute", mute).putInt("abuf", abuf)
                 .putInt("ctlAlpha", ctlAlpha).putBoolean("vibrate", vibrate)
                 .putInt("ffSpeed", ffSpeed).apply();
+    }
+
+    // ================= configuração própria de cada jogo (.json) =================
+    /** Abre as configurações do jogo: parte das padrão e aplica o .json dele (cria na primeira vez). */
+    public static void openGame(Context c, String nome) {
+        load(c);
+        gLayoutP = sp(c).getString("layout_p", null);
+        gLayoutL = sp(c).getString("layout_l", null);
+        game = nome;
+        File jf = jsonFile(c);
+        if (jf == null) { game = null; return; } // sem acesso à pasta: usa as padrão
+        if (jf.isFile()) readJson(jf); else writeJson(jf);
+    }
+
+    /** Sai do jogo: volta às configurações padrão. */
+    public static void closeGame(Context c) {
+        game = null;
+        load(c);
+    }
+
+    static File jsonFile(Context c) {
+        String g = game;
+        if (g == null) return null;
+        File d = Pastas.dir(c, Pastas.CONFIG);
+        return d == null ? null : new File(d, Pastas.seguro(g) + ".json");
+    }
+
+    static boolean writeJson(File f) {
+        try {
+            JSONObject o = new JSONObject();
+            o.put("orient", orient);
+            o.put("frameskip", frameskip);
+            o.put("shader", shader == null ? "" : shader);
+            o.put("bright", bright);
+            o.put("contrast", contrast);
+            o.put("sat", sat);
+            o.put("gamma", gamma);
+            o.put("lcd", lcd);
+            o.put("volume", volume);
+            o.put("mute", mute);
+            o.put("abuf", abuf);
+            o.put("ctlAlpha", ctlAlpha);
+            o.put("vibrate", vibrate);
+            o.put("ffSpeed", ffSpeed);
+            if (gLayoutP != null) o.put("layout_p", gLayoutP);
+            if (gLayoutL != null) o.put("layout_l", gLayoutL);
+            try (OutputStream w = new FileOutputStream(f)) {
+                w.write(o.toString(2).getBytes("UTF-8"));
+            }
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    static void readJson(File f) {
+        try {
+            ByteArrayOutputStream b = new ByteArrayOutputStream();
+            try (InputStream in = new FileInputStream(f)) {
+                byte[] t = new byte[4096];
+                int k;
+                while ((k = in.read(t)) != -1) b.write(t, 0, k);
+            }
+            JSONObject o = new JSONObject(b.toString("UTF-8"));
+            orient = o.optInt("orient", orient);
+            frameskip = o.optInt("frameskip", frameskip);
+            shader = o.optString("shader", shader);
+            bright = o.optInt("bright", bright);
+            contrast = o.optInt("contrast", contrast);
+            sat = o.optInt("sat", sat);
+            gamma = o.optInt("gamma", gamma);
+            lcd = o.optInt("lcd", lcd);
+            volume = o.optInt("volume", volume);
+            mute = o.optBoolean("mute", mute);
+            abuf = o.optInt("abuf", abuf);
+            ctlAlpha = o.optInt("ctlAlpha", ctlAlpha);
+            vibrate = o.optBoolean("vibrate", vibrate);
+            ffSpeed = o.optInt("ffSpeed", ffSpeed);
+            if (o.has("layout_p")) gLayoutP = o.getString("layout_p");
+            if (o.has("layout_l")) gLayoutL = o.getString("layout_l");
+        } catch (Exception e) { }
     }
 
     public static void resetColors() { bright = 0; contrast = 100; sat = 100; gamma = 100; lcd = 0; }
@@ -74,10 +176,19 @@ public class VideoSettings {
         a.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT);
     }
 
-    // layout dos controles/tela, um por orientação
-    public static String getLayout(Context c, boolean land) { return sp(c).getString(land ? "layout_l" : "layout_p", null); }
+    // layout dos controles/tela, um por orientação (dentro do jogo, vale só para aquele jogo)
+    public static String getLayout(Context c, boolean land) {
+        if (game != null) return land ? gLayoutL : gLayoutP;
+        return sp(c).getString(land ? "layout_l" : "layout_p", null);
+    }
 
     public static void setLayout(Context c, boolean land, String s) {
+        if (game != null) {
+            if (land) gLayoutL = s; else gLayoutP = s;
+            File jf = jsonFile(c);
+            if (jf != null) writeJson(jf);
+            return;
+        }
         SharedPreferences.Editor e = sp(c).edit();
         if (s == null) e.remove(land ? "layout_l" : "layout_p"); else e.putString(land ? "layout_l" : "layout_p", s);
         e.apply();

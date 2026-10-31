@@ -44,7 +44,7 @@ import java.util.TreeMap;
 import java.util.concurrent.locks.LockSupport;
 
 public class MainActivity extends Activity {
-    static final String FOLDER = "GBA-MAX";
+    static final String FOLDER = Pastas.RAIZ;
 
     GameView gv;
     GlScreen gl;
@@ -58,7 +58,9 @@ public class MainActivity extends Activity {
     boolean ready, loaded, inGame, built, asked, autoScanned;
     boolean menuOpen; // menu dentro do jogo aberto (jogo pausado)
     GameMenu gm;
-    String sav;
+    String sav;      // GBA-MAX/Data/<jogo>.sav
+    String stBase;   // GBA-MAX/Saves/<jogo>  (+ .st1 ... .st5)
+    String gameName; // nome do jogo que está sendo aberto
 
     // ================= início e diagnóstico =================
     @Override
@@ -219,13 +221,8 @@ public class MainActivity extends Activity {
     }
 
     // ================= pasta GBA-MAX no armazenamento interno =================
-    boolean hasStorage() {
-        if (Build.VERSION.SDK_INT >= 30) return Environment.isExternalStorageManager();
-        if (Build.VERSION.SDK_INT >= 23)
-            return checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                    == PackageManager.PERMISSION_GRANTED;
-        return true;
-    }
+    // GBA-MAX/Configurações, Shaders, Data, Saves e Cheats (ver Pastas.java)
+    boolean hasStorage() { return Pastas.temAcesso(this); }
 
     void askStorage() {
         if (Build.VERSION.SDK_INT >= 30) {
@@ -249,9 +246,13 @@ public class MainActivity extends Activity {
                 if (!asked) { asked = true; askStorage(); }
                 return;
             }
-            File f = new File(Environment.getExternalStorageDirectory(), FOLDER);
-            if (!f.exists() && !f.mkdirs()) { toast("Não consegui criar a pasta " + FOLDER); return; }
-            if (dirUri == null && !autoScanned) { autoScanned = true; scanFolder(f); }
+            if (!Pastas.criar(this)) { toast("Não consegui criar a pasta " + FOLDER); return; }
+            // a tela de shaders foi criada antes da permissão: recria para ela usar a pasta Shaders
+            if (gl != null && !inGame && !gl.shaderRoot.equals(ShaderStore.root(this))) {
+                recreate();
+                return;
+            }
+            if (dirUri == null && !autoScanned) { autoScanned = true; scanFolder(Pastas.raiz()); }
         } catch (Throwable t) {
             toast("Pasta " + FOLDER + ": " + t.getMessage());
         }
@@ -273,6 +274,7 @@ public class MainActivity extends Activity {
         for (File f : a) {
             String n = f.getName();
             if (f.isDirectory()) {
+                if (depth == 0 && Pastas.reservada(n)) continue; // Configurações, Shaders, Data, Saves, Cheats
                 if (depth < 6) walkFiles(f, m, im, depth + 1);
                 continue;
             }
@@ -382,7 +384,63 @@ public class MainActivity extends Activity {
     void playGame(MenuView.Game g) {
         if (!initCore()) return;
         getPreferences(0).edit().putString("last", g.name).apply();
+        gameName = g.name;
         try { open(g.uri); } catch (Throwable e) { toast("Erro ao abrir: " + e.getMessage()); }
+    }
+
+    /** Define onde ficam o .sav (Data) e os estados (Saves) e traz os arquivos antigos, se houver. */
+    void prepararPastas(String nome, byte[] rom) {
+        String velho = getFilesDir() + "/" + Integer.toHexString(Arrays.hashCode(rom));
+        sav = velho + ".sav";
+        stBase = velho;
+        File dData = Pastas.dir(this, Pastas.DATA);
+        if (dData != null) {
+            sav = new File(dData, nome + ".sav").getAbsolutePath();
+            migrar(new File(velho + ".sav"), new File(sav));
+        }
+        File dSaves = Pastas.dir(this, Pastas.SAVES);
+        if (dSaves != null) {
+            stBase = new File(dSaves, nome).getAbsolutePath();
+            for (int s = 1; s <= 5; s++) migrar(new File(velho + ".st" + s), new File(stBase + ".st" + s));
+        }
+    }
+
+    static void migrar(File de, File para) {
+        if (de.isFile() && !para.exists()) Pastas.copiar(de, para);
+    }
+
+    /** Lê GBA-MAX/Cheats/<jogo>.cht (uma linha por cheat: Nome=CODIGO ou só o código; # desliga). */
+    void aplicarCheats(String nome) {
+        try {
+            Native.cheatReset();
+            File d = Pastas.dir(this, Pastas.CHEATS);
+            if (d == null) return;
+            File f = new File(d, nome + ".cht");
+            if (!f.isFile()) {
+                try (FileWriter w = new FileWriter(f)) {
+                    w.write("# Cheats de " + nome + "\n"
+                            + "# Uma linha por cheat:  Nome=CODIGO   (ou só o código)\n"
+                            + "# Códigos GameShark / Action Replay / CodeBreaker do GBA. Ex.:  Vida infinita=XXXXXXXX YYYYYYYY\n"
+                            + "# Linhas começadas com # ficam desligadas.\n");
+                }
+                return;
+            }
+            ByteArrayOutputStream o = new ByteArrayOutputStream();
+            try (InputStream in = new FileInputStream(f)) {
+                byte[] t = new byte[4096];
+                int k;
+                while ((k = in.read(t)) != -1) o.write(t, 0, k);
+            }
+            int i = 0;
+            for (String linha : o.toString("UTF-8").replace("\r", "").split("\n")) {
+                String s = linha.trim();
+                if (s.isEmpty() || s.startsWith("#") || s.startsWith(";") || s.startsWith("//")) continue;
+                int eq = s.indexOf('=');
+                String code = eq >= 0 ? s.substring(eq + 1).trim() : s;
+                if (code.isEmpty()) continue;
+                Native.cheatSet(i++, true, code);
+            }
+        } catch (Throwable t) { }
     }
 
     void open(Uri u) throws Exception {
@@ -395,13 +453,17 @@ public class MainActivity extends Activity {
         while ((n = in.read(t)) != -1) o.write(t, 0, n);
         in.close();
         byte[] rom = RomReader.extract(o.toByteArray());
-        sav = getFilesDir() + "/" + Integer.toHexString(Arrays.hashCode(rom)) + ".sav";
+        String nome = Pastas.seguro(gameName != null ? gameName : "jogo");
+        prepararPastas(nome, rom);
         mark("carregar a ROM (load)");
         boolean ok = Native.load(rom, "game.gba");
         unmark();
         if (!ok) { toast("ROM inválida"); return; }
         Native.loadSram(sav);
         loaded = true;
+        VideoSettings.openGame(this, nome); // configurações próprias do jogo (.json)
+        if (gl != null) gl.reloadShader();
+        aplicarCheats(nome);
         inGame = true;
         VideoSettings.applyOrientation(this); // orientação escolhida vale só no jogo
         mv.setVisibility(View.GONE);
@@ -434,7 +496,7 @@ public class MainActivity extends Activity {
         start();
     }
 
-    String statePath(int slot) { return sav.substring(0, sav.length() - 4) + ".st" + slot; }
+    String statePath(int slot) { return stBase + ".st" + slot; }
 
     void afterLoadState() {
         Native.setSkip(false);
@@ -456,6 +518,9 @@ public class MainActivity extends Activity {
         menuOpen = false;
         stop();
         save();
+        VideoSettings.save(this);      // grava o .json do jogo
+        VideoSettings.closeGame(this); // volta às configurações padrão
+        if (gl != null) gl.reloadShader();
         inGame = false;
         gv.touch = 0; gv.ta = false; gv.tb = false;
         gv.setVisibility(View.GONE);
