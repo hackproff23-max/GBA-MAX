@@ -310,6 +310,8 @@ public class MenuView extends FrameLayout {
         adapter.notifyDataSetChanged();
     }
 
+    public void refreshCovers() { adapter.notifyDataSetChanged(); }
+
     void toast(String s) { Toast.makeText(getContext(), s, Toast.LENGTH_SHORT).show(); }
 
     void dockAction(int k) {
@@ -542,6 +544,21 @@ public class MenuView extends FrameLayout {
             fill.setShader(new LinearGradient(0, r.top, 0, r.top + r.height() * .5f,
                     0x66FFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP));
             c.drawRect(r.left, r.top, r.right, r.top + r.height() * .5f, fill);
+            // efeito de vidro por cima: véu fosco, brilho diagonal e borda interna
+            fill.setShader(null);
+            fill.setColor(0x14FFFFFF);
+            c.drawRect(r, fill);
+            fill.setShader(new LinearGradient(r.left, r.top, r.right, r.bottom,
+                    new int[]{0x59FFFFFF, 0x1AFFFFFF, 0x00FFFFFF, 0x26FFFFFF},
+                    new float[]{0f, .32f, .6f, 1f}, Shader.TileMode.CLAMP));
+            c.drawRect(r, fill);
+            fill.setShader(new LinearGradient(0, r.bottom - r.height() * .3f, 0, r.bottom,
+                    0x00000000, 0x33000000, Shader.TileMode.CLAMP));
+            c.drawRect(r.left, r.bottom - r.height() * .3f, r.right, r.bottom, fill);
+            line.setStyle(Paint.Style.STROKE);
+            line.setStrokeWidth(dp(1));
+            line.setColor(0x80FFFFFF);
+            c.drawRoundRect(r.left + dp(2), r.top + dp(2), r.right - dp(2), r.bottom - dp(2), rad - dp(2), rad - dp(2), line);
             fill.setShader(null);
             c.restore();
             // moldura

@@ -245,6 +245,7 @@ public class MainActivity extends Activity {
         List<MenuView.Game> l = new ArrayList<>(m.values());
         for (MenuView.Game g : l) g.cover = im.get(g.name.toLowerCase());
         mv.setGames(l, getPreferences(0).getString("last", null), true);
+        fetchCovers(l);
     }
 
     void walkFiles(File d, Map<String, MenuView.Game> m, Map<String, Uri> im, int depth) {
@@ -272,6 +273,19 @@ public class MainActivity extends Activity {
         } else if (low.endsWith(".png") || low.endsWith(".jpg") || low.endsWith(".jpeg") || low.endsWith(".webp")) {
             im.put(base.toLowerCase(), u);
         }
+    }
+
+    // ================= capas (baixadas e identificadas) =================
+    int coverGen;
+
+    void fetchCovers(final List<MenuView.Game> l) {
+        final int gen = ++coverGen;
+        final File dir = new File(getFilesDir(), "covers");
+        new Thread(() -> new CoverFetcher(dir, getContentResolver()).run(new ArrayList<>(l), (g, f) -> runOnUiThread(() -> {
+            if (gen != coverGen) return;
+            g.cover = Uri.fromFile(f);
+            mv.refreshCovers();
+        }))).start();
     }
 
     // ================= pasta escolhida pelo seletor =================
@@ -304,6 +318,7 @@ public class MainActivity extends Activity {
         List<MenuView.Game> l = new ArrayList<>(m.values());
         for (MenuView.Game g : l) g.cover = im.get(g.name.toLowerCase());
         mv.setGames(l, getPreferences(0).getString("last", null), true);
+        fetchCovers(l);
         if (!ok) toast("Não consegui ler a pasta. Selecione de novo.");
     }
 
