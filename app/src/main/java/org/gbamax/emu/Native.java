@@ -11,6 +11,7 @@ public class Native {
     static native void draw(Bitmap b);
     static native int audio(short[] out);
     static native void input(int mask);
+    static native void setSkip(boolean skip);
     static native double rate();
     static native boolean saveSram(String path);
     static native void loadSram(String path);

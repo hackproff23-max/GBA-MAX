@@ -1,7 +1,6 @@
 package org.gbamax.emu;
 
 import android.content.Context;
-import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -9,6 +8,7 @@ import android.graphics.RectF;
 import android.view.MotionEvent;
 import android.view.View;
 
+/** Camada de controles (transparente). A imagem do jogo é desenhada pelo GlScreen por baixo. */
 public class GameView extends View {
     // bits no padrão libretro
     static final int B = 1, SEL = 4, ST = 8, UP = 16, DN = 32, LF = 64, RT = 128, A = 256, L = 1024, R = 2048;
@@ -30,20 +30,35 @@ public class GameView extends View {
         {40, 92, 6}, {50, 92, 6}, {60, 92, 6}, {50, 6, 5}};
     static final float[] LD = {13, 68, 24};
 
+    // itens do layout: 0..14 botões, 15 direcional, 16 tela
+    static final int N = 17, DPAD = 15, SCREEN = 16;
+
     volatile int touch;
     volatile boolean ta, tb, ff;
     Runnable onRom;
+    GlScreen gl;
 
-    final Bitmap bmp = Bitmap.createBitmap(240, 160, Bitmap.Config.ARGB_8888);
+    // layout em frações da view: x/largura, y/altura, raio/min(largura,altura) (tela: largura/largura)
+    final float[] ax = new float[N], ay = new float[N], ar = new float[N];
     final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
     final RectF scr = new RectF();
     final float[] px = new float[15], py = new float[15], pr = new float[15];
     float dcx, dcy, dr, kx, ky;
-    boolean knob;
-    int pressed;
+    boolean knob, land;
+    int pressed, vw, vh;
+    final float den;
+
+    // modo de edição
+    volatile boolean editing;
+    Runnable onEditDone;
+    int sel = -1;
+    float lx, ly;
+    final RectF[] tb4 = {new RectF(), new RectF(), new RectF(), new RectF()};
+    static final String[] TBL = {"Menor", "Maior", "Padrão", "Salvar"};
 
     public GameView(Context c) {
         super(c);
+        den = c.getResources().getDisplayMetrics().density;
         p.setTextAlign(Paint.Align.CENTER);
     }
 
@@ -55,31 +70,201 @@ public class GameView extends View {
         return m;
     }
 
-    @Override
-    protected void onSizeChanged(int w, int h, int ow, int oh) {
+    // ================= layout =================
+    void defaults(int w, int h) {
+        float mn = Math.min(w, h);
         if (h > w) {
             float sh = w * 2f / 3, ch = h - sh;
-            scr.set(0, 0, w, sh);
             for (int i = 0; i < 15; i++) {
-                px[i] = P[i][0] * w / 100; py[i] = sh + P[i][1] * ch / 100; pr[i] = P[i][2] * w / 100;
+                ax[i] = P[i][0] / 100f;
+                ay[i] = (sh + P[i][1] * ch / 100) / h;
+                ar[i] = P[i][2] * w / 100 / mn;
             }
-            dcx = PD[0] * w / 100; dcy = sh + PD[1] * ch / 100; dr = PD[2] * w / 100;
+            ax[DPAD] = PD[0] / 100f; ay[DPAD] = (sh + PD[1] * ch / 100) / h; ar[DPAD] = PD[2] * w / 100 / mn;
+            ax[SCREEN] = .5f; ay[SCREEN] = sh / 2 / h; ar[SCREEN] = 1f;
         } else {
-            float sw = Math.min(w, h * 1.5f), sh = sw / 1.5f;
-            scr.set((w - sw) / 2, (h - sh) / 2, (w + sw) / 2, (h + sh) / 2);
             for (int i = 0; i < 15; i++) {
-                px[i] = LS[i][0] * w / 100; py[i] = LS[i][1] * h / 100; pr[i] = LS[i][2] * h / 100;
+                ax[i] = LS[i][0] / 100f;
+                ay[i] = LS[i][1] / 100f;
+                ar[i] = LS[i][2] / 100f;
             }
-            dcx = LD[0] * w / 100; dcy = LD[1] * h / 100; dr = LD[2] * h / 100;
+            ax[DPAD] = LD[0] / 100f; ay[DPAD] = LD[1] / 100f; ar[DPAD] = LD[2] / 100f;
+            float sw = Math.min(w, h * 1.5f);
+            ax[SCREEN] = .5f; ay[SCREEN] = .5f; ar[SCREEN] = sw / w;
+        }
+    }
+
+    boolean loadSaved() {
+        String s = VideoSettings.getLayout(getContext(), land);
+        if (s == null) return false;
+        try {
+            String[] t = s.split(",");
+            if (t.length != N * 3) return false;
+            float[] a = new float[N * 3];
+            for (int i = 0; i < a.length; i++) a[i] = Float.parseFloat(t[i]);
+            for (int i = 0; i < N; i++) { ax[i] = a[i * 3]; ay[i] = a[i * 3 + 1]; ar[i] = a[i * 3 + 2]; }
+            return true;
+        } catch (Exception e) { return false; }
+    }
+
+    void saveLayout() {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < N; i++) {
+            if (i > 0) sb.append(',');
+            sb.append(ax[i]).append(',').append(ay[i]).append(',').append(ar[i]);
+        }
+        VideoSettings.setLayout(getContext(), land, sb.toString());
+    }
+
+    void reloadLayout() {
+        if (vw <= 0) return;
+        defaults(vw, vh);
+        loadSaved();
+        recalc();
+    }
+
+    void recalc() {
+        float mn = Math.min(vw, vh);
+        for (int i = 0; i < 15; i++) { px[i] = ax[i] * vw; py[i] = ay[i] * vh; pr[i] = ar[i] * mn; }
+        dcx = ax[DPAD] * vw; dcy = ay[DPAD] * vh; dr = ar[DPAD] * mn;
+        float sw = ar[SCREEN] * vw, sh = sw / 1.5f, cx = ax[SCREEN] * vw, cy = ay[SCREEN] * vh;
+        scr.set(cx - sw / 2, cy - sh / 2, cx + sw / 2, cy + sh / 2);
+        if (gl != null) gl.setRect(scr.left, scr.top, scr.right, scr.bottom);
+        float bw = Math.min(vw / 4.4f, 96 * den), bh = 40 * den, gap = 6 * den;
+        float tot = bw * 4 + gap * 3, x0 = (vw - tot) / 2, y0 = 8 * den;
+        for (int i = 0; i < 4; i++) tb4[i].set(x0 + i * (bw + gap), y0, x0 + i * (bw + gap) + bw, y0 + bh);
+    }
+
+    @Override
+    protected void onSizeChanged(int w, int h, int ow, int oh) {
+        vw = w; vh = h;
+        land = w > h;
+        reloadLayout();
+    }
+
+    // ================= edição =================
+    public void startEdit(Runnable done) {
+        editing = true;
+        onEditDone = done;
+        sel = -1;
+        touch = 0; ta = false; tb = false; pressed = 0; knob = false;
+        invalidate();
+    }
+
+    public void cancelEdit() {
+        editing = false;
+        reloadLayout();
+        invalidate();
+    }
+
+    int pick(float x, float y) {
+        if (Math.hypot(x - dcx, y - dcy) < dr * 1.1) return DPAD;
+        int best = -1;
+        float bd = 1e9f;
+        for (int j = 0; j < 15; j++) {
+            float dd = (float) Math.hypot(x - px[j], y - py[j]);
+            if (dd < pr[j] * 1.2f && dd < bd) { bd = dd; best = j; }
+        }
+        if (best >= 0) return best;
+        return scr.contains(x, y) ? SCREEN : -1;
+    }
+
+    boolean editTouch(MotionEvent e) {
+        float x = e.getX(), y = e.getY();
+        switch (e.getActionMasked()) {
+            case MotionEvent.ACTION_DOWN:
+                for (int i = 0; i < 4; i++) if (tb4[i].contains(x, y)) { toolbar(i); return true; }
+                sel = pick(x, y);
+                lx = x; ly = y;
+                break;
+            case MotionEvent.ACTION_MOVE:
+                if (sel >= 0) {
+                    ax[sel] = Math.max(0f, Math.min(1f, ax[sel] + (x - lx) / vw));
+                    ay[sel] = Math.max(0f, Math.min(1f, ay[sel] + (y - ly) / vh));
+                    lx = x; ly = y;
+                    recalc();
+                }
+                break;
+        }
+        invalidate();
+        return true;
+    }
+
+    void toolbar(int i) {
+        if (i == 3) {
+            saveLayout();
+            editing = false;
+            if (onEditDone != null) onEditDone.run();
+            return;
+        }
+        if (i == 2) {
+            if (sel < 0) {
+                defaults(vw, vh);
+                VideoSettings.setLayout(getContext(), land, null);
+            } else {
+                float[] oa = ax.clone(), oy = ay.clone(), orr = ar.clone();
+                defaults(vw, vh);
+                float dx = ax[sel], dy = ay[sel], dRad = ar[sel];
+                System.arraycopy(oa, 0, ax, 0, N);
+                System.arraycopy(oy, 0, ay, 0, N);
+                System.arraycopy(orr, 0, ar, 0, N);
+                ax[sel] = dx; ay[sel] = dy; ar[sel] = dRad;
+            }
+            recalc();
+            invalidate();
+            return;
+        }
+        if (sel < 0) return;
+        float f = i == 0 ? 0.92f : 1.08f;
+        float lo = sel == SCREEN ? .3f : sel == DPAD ? .06f : .025f;
+        float hi = sel == SCREEN ? 1f : sel == DPAD ? .4f : .25f;
+        ar[sel] = Math.max(lo, Math.min(hi, ar[sel] * f));
+        recalc();
+        invalidate();
+    }
+
+    void drawEdit(Canvas c) {
+        c.drawColor(0x55000000);
+        // área da tela do jogo
+        p.setStyle(Paint.Style.FILL);
+        p.setColor(0x33FFFFFF);
+        c.drawRect(scr, p);
+        p.setStyle(Paint.Style.STROKE);
+        p.setStrokeWidth(3 * den);
+        p.setColor(sel == SCREEN ? 0xFFFFD54F : 0xCCFFFFFF);
+        c.drawRect(scr, p);
+        p.setStyle(Paint.Style.FILL);
+        p.setColor(0xCCFFFFFF);
+        p.setTextSize(16 * den);
+        c.drawText("TELA", scr.centerX(), scr.centerY(), p);
+        if (sel == DPAD) {
+            p.setStyle(Paint.Style.STROKE);
+            p.setStrokeWidth(4 * den);
+            p.setColor(0xFFFFD54F);
+            c.drawCircle(dcx, dcy, dr + 4 * den, p);
+        } else if (sel >= 0 && sel < 15) {
+            p.setStyle(Paint.Style.STROKE);
+            p.setStrokeWidth(4 * den);
+            p.setColor(0xFFFFD54F);
+            c.drawCircle(px[sel], py[sel], pr[sel] + 4 * den, p);
+        }
+        p.setTextSize(13 * den);
+        p.setStyle(Paint.Style.FILL);
+        p.setColor(0xEEFFFFFF);
+        c.drawText(sel < 0 ? "Toque num item e arraste" : "Arraste ou use Menor/Maior", vw / 2f, tb4[0].bottom + 22 * den, p);
+        for (int i = 0; i < 4; i++) {
+            p.setStyle(Paint.Style.FILL);
+            p.setColor(i == 3 ? 0xFF2EAD4B : 0xFF1E6BE6);
+            c.drawRoundRect(tb4[i], 12 * den, 12 * den, p);
+            p.setColor(Color.WHITE);
+            p.setTextSize(14 * den);
+            c.drawText(TBL[i], tb4[i].centerX(), tb4[i].centerY() + 5 * den, p);
         }
     }
 
     @Override
     protected void onDraw(Canvas c) {
-        c.drawColor(Color.BLACK);
-        Native.draw(bmp);
-        p.setFilterBitmap(true);
-        c.drawBitmap(bmp, null, scr, p);
+        if (editing) drawEdit(c);
         p.setStrokeWidth(3);
         p.setStyle(Paint.Style.STROKE);
         p.setColor(0x88FFFFFF);
@@ -105,6 +290,7 @@ public class GameView extends View {
 
     @Override
     public boolean onTouchEvent(MotionEvent e) {
+        if (editing) return editTouch(e);
         int act = e.getActionMasked(), ai = e.getActionIndex();
         int m = 0, pr2 = 0;
         boolean t1 = false, t2 = false, k = false;

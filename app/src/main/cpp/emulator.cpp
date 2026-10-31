@@ -30,6 +30,7 @@ static std::vector<int16_t> aud;
 static unsigned fw = 240, fh = 160;
 static int fmt = 0;
 static volatile int pad = 0;
+static volatile bool skipv = false;
 static double sr = 32768;
 static std::string sysdir;
 
@@ -39,12 +40,15 @@ static bool env(unsigned cmd, void* d) {
         case RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY:
         case RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY: *(const char**)d = sysdir.c_str(); return true;
         case RETRO_ENVIRONMENT_GET_CAN_DUPE: *(bool*)d = true; return true;
+#ifdef RETRO_ENVIRONMENT_GET_AUDIO_VIDEO_ENABLE
+        case RETRO_ENVIRONMENT_GET_AUDIO_VIDEO_ENABLE: if (d) *(int*)d = skipv ? 2 : 3; return true;
+#endif
     }
     return false;
 }
 
 static void video(const void* d, unsigned w, unsigned h, size_t pitch) {
-    if (!d) return;
+    if (!d || skipv) return;
     std::lock_guard<std::mutex> g(vm);
     fw = w; fh = h;
     frame.resize((size_t)w * h);
@@ -127,6 +131,7 @@ JNIEXPORT jboolean JNICALL Java_org_gbamax_emu_Native_load(JNIEnv* e, jclass, jb
 JNIEXPORT void JNICALL Java_org_gbamax_emu_Native_unload(JNIEnv*, jclass) { f_unload(); }
 JNIEXPORT void JNICALL Java_org_gbamax_emu_Native_run(JNIEnv*, jclass) { f_run(); }
 JNIEXPORT void JNICALL Java_org_gbamax_emu_Native_input(JNIEnv*, jclass, jint m) { pad = m; }
+JNIEXPORT void JNICALL Java_org_gbamax_emu_Native_setSkip(JNIEnv*, jclass, jboolean s) { skipv = s; }
 JNIEXPORT jdouble JNICALL Java_org_gbamax_emu_Native_rate(JNIEnv*, jclass) { return sr; }
 
 JNIEXPORT void JNICALL Java_org_gbamax_emu_Native_draw(JNIEnv* e, jclass, jobject bm) {
@@ -138,7 +143,7 @@ JNIEXPORT void JNICALL Java_org_gbamax_emu_Native_draw(JNIEnv* e, jclass, jobjec
         if (frame.size() >= (size_t)fw * fh) {
             unsigned w = std::min(i.width, fw), h = std::min(i.height, fh);
             for (unsigned y = 0; y < h; y++)
-                memcpy((char*)px + (size_t)y * i.stride, &frame[(size_t)y * fw], w * 4);
+                memcpy((char*)px + (size_t)(h - 1 - y) * i.stride, &frame[(size_t)y * fw], w * 4);
         }
     }
     AndroidBitmap_unlockPixels(e, bm);

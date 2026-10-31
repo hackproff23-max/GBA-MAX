@@ -47,6 +47,7 @@ public class MainActivity extends Activity {
     static final String FOLDER = "GBA-MAX";
 
     GameView gv;
+    GlScreen gl;
     FrameLayout root;
     MenuView mv;
     Uri dirUri;
@@ -61,6 +62,8 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
+        VideoSettings.load(this);
+        VideoSettings.applyOrientation(this);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         final Thread.UncaughtExceptionHandler old = Thread.getDefaultUncaughtExceptionHandler();
         Thread.setDefaultUncaughtExceptionHandler((t, e) -> {
@@ -84,7 +87,12 @@ public class MainActivity extends Activity {
     void buildUi() {
         try {
             root = new FrameLayout(this);
+            root.setBackgroundColor(Color.BLACK);
+            gl = new GlScreen(this);
+            gl.onError = m -> toast(m);
+            gl.setVisibility(View.GONE);
             gv = new GameView(this);
+            gv.gl = gl;
             gv.onRom = this::showMenu;
             gv.setVisibility(View.GONE);
             mv = new MenuView(this, new MenuView.Host() {
@@ -93,7 +101,14 @@ public class MainActivity extends Activity {
                 @Override public void refresh() {
                     if (dirUri != null) scan(dirUri); else { autoScanned = false; ensureFolder(); }
                 }
+                @Override public void videoChanged() {
+                    VideoSettings.applyOrientation(MainActivity.this);
+                    if (gl != null) gl.reloadShader();
+                }
+                @Override public void editLayout() { startLayoutEdit(); }
+                @Override public void importShaders() { pickShaders(); }
             });
+            root.addView(gl);
             root.addView(gv);
             root.addView(mv);
             setContentView(root);
@@ -245,6 +260,7 @@ public class MainActivity extends Activity {
         List<MenuView.Game> l = new ArrayList<>(m.values());
         for (MenuView.Game g : l) g.cover = im.get(g.name.toLowerCase());
         mv.setGames(l, getPreferences(0).getString("last", null), true);
+        fetchCovers(l);
     }
 
     void walkFiles(File d, Map<String, MenuView.Game> m, Map<String, Uri> im, int depth) {
@@ -253,7 +269,7 @@ public class MainActivity extends Activity {
         for (File f : a) {
             String n = f.getName();
             if (f.isDirectory()) {
-                if (depth < 3) walkFiles(f, m, im, depth + 1);
+                if (depth < 6) walkFiles(f, m, im, depth + 1);
                 continue;
             }
             addEntry(n, Uri.fromFile(f), m, im);
@@ -264,7 +280,7 @@ public class MainActivity extends Activity {
         int dot = n.lastIndexOf('.');
         if (dot <= 0) return;
         String base = n.substring(0, dot), low = n.toLowerCase();
-        if (low.endsWith(".zip")) {
+        if (low.endsWith(".zip") || low.endsWith(".gba") || low.endsWith(".agb")) {
             MenuView.Game g = new MenuView.Game();
             g.name = base;
             g.uri = u;
@@ -272,6 +288,19 @@ public class MainActivity extends Activity {
         } else if (low.endsWith(".png") || low.endsWith(".jpg") || low.endsWith(".jpeg") || low.endsWith(".webp")) {
             im.put(base.toLowerCase(), u);
         }
+    }
+
+    // ================= capas (baixadas e identificadas) =================
+    int coverGen;
+
+    void fetchCovers(final List<MenuView.Game> l) {
+        final int gen = ++coverGen;
+        final File dir = new File(getFilesDir(), "covers");
+        new Thread(() -> new CoverFetcher(dir, getContentResolver()).run(new ArrayList<>(l), (g, f) -> runOnUiThread(() -> {
+            if (gen != coverGen) return;
+            g.cover = Uri.fromFile(f);
+            mv.refreshCovers();
+        }))).start();
     }
 
     // ================= pasta escolhida pelo seletor =================
@@ -285,7 +314,9 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onActivityResult(int req, int res, Intent d) {
-        if (res != RESULT_OK || d == null || d.getData() == null) return;
+        if (res != RESULT_OK || d == null) return;
+        if (req == 3) { importResult(d); return; }
+        if (d.getData() == null) return;
         Uri u = d.getData();
         try { getContentResolver().takePersistableUriPermission(u, Intent.FLAG_GRANT_READ_URI_PERMISSION); }
         catch (Exception e) { }
@@ -304,6 +335,7 @@ public class MainActivity extends Activity {
         List<MenuView.Game> l = new ArrayList<>(m.values());
         for (MenuView.Game g : l) g.cover = im.get(g.name.toLowerCase());
         mv.setGames(l, getPreferences(0).getString("last", null), true);
+        fetchCovers(l);
         if (!ok) toast("Não consegui ler a pasta. Selecione de novo.");
     }
 
@@ -318,7 +350,7 @@ public class MainActivity extends Activity {
                 String did = c.getString(0), n = c.getString(1), mt = c.getString(2);
                 if (n == null) continue;
                 if (DocumentsContract.Document.MIME_TYPE_DIR.equals(mt)) {
-                    if (depth < 3) walk(tree, did, m, im, depth + 1);
+                    if (depth < 6) walk(tree, did, m, im, depth + 1);
                     continue;
                 }
                 addEntry(n, DocumentsContract.buildDocumentUriUsingTree(tree, did), m, im);
@@ -368,6 +400,7 @@ public class MainActivity extends Activity {
         loaded = true;
         inGame = true;
         mv.setVisibility(View.GONE);
+        gl.setVisibility(View.VISIBLE);
         gv.setVisibility(View.VISIBLE);
         start();
     }
@@ -378,11 +411,50 @@ public class MainActivity extends Activity {
         inGame = false;
         gv.touch = 0; gv.ta = false; gv.tb = false;
         gv.setVisibility(View.GONE);
+        gl.setVisibility(View.GONE);
         mv.setVisibility(View.VISIBLE);
+    }
+
+    // ================= vídeo: editar layout e importar shaders =================
+    void startLayoutEdit() {
+        if (inGame) return;
+        mv.setVisibility(View.GONE);
+        gl.setVisibility(View.VISIBLE);
+        gv.setVisibility(View.VISIBLE);
+        gv.startEdit(this::endLayoutEdit);
+    }
+
+    void endLayoutEdit() {
+        gv.setVisibility(View.GONE);
+        gl.setVisibility(View.GONE);
+        mv.setVisibility(View.VISIBLE);
+    }
+
+    void pickShaders() {
+        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        i.addCategory(Intent.CATEGORY_OPENABLE);
+        i.setType("*/*");
+        i.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+        startActivityForResult(i, 3);
+    }
+
+    void importResult(Intent d) {
+        final List<Uri> us = new ArrayList<>();
+        ClipData cd = d.getClipData();
+        if (cd != null) { for (int k = 0; k < cd.getItemCount(); k++) us.add(cd.getItemAt(k).getUri()); }
+        else if (d.getData() != null) us.add(d.getData());
+        new Thread(() -> {
+            final int n = ShaderStore.importUris(this, us);
+            runOnUiThread(() -> {
+                toast(n > 0 ? n + " arquivo(s) importado(s)" : "Nada foi importado");
+                if (built && mv != null) new VideoMenu(mv).show();
+            });
+        }).start();
     }
 
     @Override
     public void onBackPressed() {
+        if (gv != null && gv.editing) { gv.cancelEdit(); endLayoutEdit(); return; }
         if (inGame) showMenu(); else super.onBackPressed();
     }
 
@@ -417,33 +489,40 @@ public class MainActivity extends Activity {
             th = null;
         }
         if (at != null) { at.release(); at = null; }
+        Native.setSkip(false);
         unmark();
     }
 
     void loop() {
         short[] ab = new short[8192];
-        int frame = 0;
+        int frame = 0, shown = 0;
         final long T = 16743000L; // ~59.73 fps
         while (run) {
             long t0 = System.nanoTime();
             boolean f = gv.ff;
             int n = f ? 4 : 1; // fast-forward 4x
+            int fs = VideoSettings.frameskip; // pulo de quadros
             for (int i = 0; i < n; i++) {
                 frame++;
+                boolean last = i == n - 1;
+                boolean skip = !last;
+                if (last) { shown++; skip = fs > 0 && (shown % (fs + 1)) != 0; }
+                Native.setSkip(skip);
                 Native.input(gv.mask(frame));
                 Native.run();
                 int c = Native.audio(ab);
                 if (!f && c > 0) at.write(ab, 0, c);
+                if (last && !skip) gl.requestRender();
             }
-            gv.postInvalidate();
             long r = T - (System.nanoTime() - t0);
             if (r > 0) LockSupport.parkNanos(r);
         }
     }
 
-    @Override protected void onPause() { super.onPause(); stop(); save(); }
+    @Override protected void onPause() { super.onPause(); stop(); save(); if (gl != null) gl.onPause(); }
     @Override protected void onResume() {
         super.onResume();
+        if (gl != null) gl.onResume();
         if (!built) return;
         ensureFolder();
         if (inGame) start();

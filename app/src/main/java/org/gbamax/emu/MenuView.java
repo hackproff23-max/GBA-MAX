@@ -54,7 +54,10 @@ import java.util.concurrent.Executors;
 /** Menu estilo launcher premium: barra superior em vidro, grade de 3 colunas e dock suspensa. */
 public class MenuView extends FrameLayout {
 
-    public interface Host { void play(Game g); void pickDir(); void refresh(); }
+    public interface Host {
+        void play(Game g); void pickDir(); void refresh();
+        void videoChanged(); void editLayout(); void importShaders();
+    }
 
     public static class Game { public String name; public Uri uri, cover; }
 
@@ -144,7 +147,7 @@ public class MenuView extends FrameLayout {
             @Override public void onScroll(AbsListView v, int first, int vis, int total) {
                 int idx = 0;
                 if (total > vis) idx = Math.round(first * 4f / Math.max(1, total - vis));
-                dots.set(Math.max(0, Math.min(4, idx)));
+                if (dots != null) dots.set(Math.max(0, Math.min(4, idx)));
             }
         });
         addView(grid, new LayoutParams(-1, -1));
@@ -161,10 +164,8 @@ public class MenuView extends FrameLayout {
         top.setOrientation(LinearLayout.HORIZONTAL);
         top.setGravity(Gravity.CENTER_VERTICAL);
         top.setPadding(dp(14), 0, dp(16), 0);
-        top.setBackground(glass(dp(27)));
+        top.setBackground(glass(dp(23)));
         top.setElevation(dp(8));
-
-        top.addView(new IconView(c, Icons.WIFI, 0xFF1E6BE6), new LinearLayout.LayoutParams(dp(22), dp(22)));
 
         TextView net = new TextView(c);
         net.setText("Internet");
@@ -181,11 +182,9 @@ public class MenuView extends FrameLayout {
         net.setElevation(dp(3));
         LinearLayout.LayoutParams nl = new LinearLayout.LayoutParams(-2, dp(30));
         nl.leftMargin = dp(8);
-        top.addView(net, nl);
 
         LinearLayout.LayoutParams cl = new LinearLayout.LayoutParams(dp(22), dp(22));
         cl.leftMargin = dp(10);
-        top.addView(new IconView(c, Icons.COIN, 0xFFFFB300), cl);
         coins = new TextView(c);
         coins.setTextColor(0xFF1B1F27);
         coins.setTextSize(13);
@@ -193,20 +192,37 @@ public class MenuView extends FrameLayout {
         coins.setText("0");
         LinearLayout.LayoutParams ctl = new LinearLayout.LayoutParams(-2, -2);
         ctl.leftMargin = dp(4);
-        top.addView(coins, ctl);
 
-        top.addView(new View(c), new LinearLayout.LayoutParams(0, 1, 1f));
+        top.addView(new IconView(c, Icons.CAL, 0xFF1B1F27), new LinearLayout.LayoutParams(dp(18), dp(18)));
+        TextClock td = new TextClock(c) {
+            @Override public void setText(CharSequence t, TextView.BufferType b) {
+                super.setText(t == null ? null : t.toString().toUpperCase(java.util.Locale.ROOT), b);
+            }
+        };
+        td.setFormat12Hour("dd/MMM/yyyy");
+        td.setFormat24Hour("dd/MMM/yyyy");
+        td.setTextSize(14);
+        td.setTypeface(Typeface.DEFAULT_BOLD);
+        td.setTextColor(0xFF1B1F27);
+        td.setSingleLine(true);
+        LinearLayout.LayoutParams tdl = new LinearLayout.LayoutParams(-2, -2);
+        tdl.leftMargin = dp(5);
+        top.addView(td, tdl);
+        LinearLayout.LayoutParams ckl = new LinearLayout.LayoutParams(dp(18), dp(18));
+        ckl.leftMargin = dp(12);
+        top.addView(new IconView(c, Icons.CLOCK, 0xFF1B1F27), ckl);
         TextClock tc = new TextClock(c);
-        tc.setFormat12Hour("MMM d, yyyy\nh:mm a");
-        tc.setFormat24Hour("MMM d, yyyy\nHH:mm");
-        tc.setTextSize(11);
+        tc.setFormat12Hour("HH:mm");
+        tc.setFormat24Hour("HH:mm");
+        tc.setTextSize(14);
         tc.setTypeface(Typeface.DEFAULT_BOLD);
         tc.setTextColor(0xFF1B1F27);
-        tc.setGravity(Gravity.CENTER);
-        top.addView(tc, new LinearLayout.LayoutParams(-2, -2));
+        tc.setSingleLine(true);
+        LinearLayout.LayoutParams tcl = new LinearLayout.LayoutParams(-2, -2);
+        tcl.leftMargin = dp(5);
+        top.addView(tc, tcl);
         top.addView(new View(c), new LinearLayout.LayoutParams(0, 1, 1f));
 
-        top.addView(new IconView(c, Icons.HEAD, 0xFF1B1F27), new LinearLayout.LayoutParams(dp(22), dp(22)));
         batTxt = new TextView(c);
         batTxt.setTextColor(0xFF1B1F27);
         batTxt.setTextSize(12);
@@ -220,8 +236,8 @@ public class MenuView extends FrameLayout {
         bl.leftMargin = dp(5);
         top.addView(bat, bl);
 
-        LayoutParams tl = new LayoutParams(-1, dp(54), Gravity.TOP);
-        tl.setMargins(dp(12), dp(12), dp(12), 0);
+        LayoutParams tl = new LayoutParams(-1, dp(46), Gravity.TOP);
+        tl.setMargins(dp(12), dp(6), dp(12), 0);
         addView(top, tl);
 
         // ---------- dock ----------
@@ -230,25 +246,21 @@ public class MenuView extends FrameLayout {
         dock.setGravity(Gravity.CENTER);
         dock.setClipChildren(false);
         dock.setPadding(dp(8), 0, dp(8), 0);
-        dock.setBackground(glass(dp(34)));
+        dock.setBackground(glass(dp(30)));
         dock.setElevation(dp(12));
-        int[] ty = {Icons.HOME, Icons.CHAT, Icons.BAG, Icons.LIB, Icons.FACE, Icons.PAD, Icons.GEAR};
-        int[] bg = {0xFFFFFFFF, 0xFFE53935, 0xFFFFA000, 0xFF1E6BE6, 0xFF2EAD4B, 0xFFF2F4F8, 0xFF3A3C42};
-        int[] ic = {0xFF111111, Color.WHITE, Color.WHITE, Color.WHITE, Color.WHITE, 0xFF2A2F3A, Color.WHITE};
-        for (int i = 0; i < 7; i++) {
+        // mesma sequência e mesmos ícones/cores da tela de Configurações
+        int[] ty = {Icons.HOME, Icons.SCREEN, Icons.AUDIO, Icons.PAD, Icons.SAVE, Icons.GEAR};
+        int[] bg = {0xFFFFFFFF, 0xFF1E6BE6, 0xFFFFA000, 0xFF7E57C2, 0xFF2EAD4B, 0xFF3A3C42};
+        int[] ic = {0xFF111111, Color.WHITE, Color.WHITE, Color.WHITE, Color.WHITE, Color.WHITE};
+        for (int i = 0; i < 6; i++) {
             DockBtn b = new DockBtn(c, ty[i], bg[i], ic[i], i == 0);
             final int k = i;
             b.setOnClickListener(v -> dockAction(k));
             dock.addView(b, new LinearLayout.LayoutParams(0, dp(56), 1f));
         }
-        LayoutParams dl = new LayoutParams(-1, dp(68), Gravity.BOTTOM);
-        dl.setMargins(dp(14), 0, dp(14), dp(36));
+        LayoutParams dl = new LayoutParams(-1, dp(60), Gravity.BOTTOM);
+        dl.setMargins(dp(14), 0, dp(14), dp(14));
         addView(dock, dl);
-
-        dots = new DotsView(c);
-        LayoutParams pl = new LayoutParams(dp(72), dp(14), Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
-        pl.bottomMargin = dp(12);
-        addView(dots, pl);
 
         relayout();
     }
@@ -274,7 +286,7 @@ public class MenuView extends FrameLayout {
         int pad = dp(10);
         cw = (dm.widthPixels - 2 * pad) / cols;
         grid.setNumColumns(cols);
-        grid.setPadding(pad, dp(82), pad, dp(124));
+        grid.setPadding(pad, dp(68), pad, dp(92));
         LayoutParams tl = (LayoutParams) top.getLayoutParams();
         tl.width = land ? dp(640) : -1;
         tl.gravity = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
@@ -293,25 +305,224 @@ public class MenuView extends FrameLayout {
         selected = sel;
         if (selected == null && !games.isEmpty()) selected = games.get(0).name;
         coins.setText(String.valueOf(games.size()));
-        empty.setText(dir ? "Nenhum jogo .zip encontrado.\nColoque seus jogos na pasta GBA-MAX\ndo armazenamento interno."
-                : "Toque em Biblioteca (ícone azul)\npara escolher a pasta de ROMs.");
+        empty.setText(dir ? "Nenhum jogo (.zip/.gba) encontrado.\nColoque seus jogos na pasta GBA-MAX\ndo armazenamento interno."
+                : "Toque em Início (ícone branco)\npara escolher a pasta de ROMs.");
         empty.setVisibility(games.isEmpty() ? VISIBLE : GONE);
         adapter.notifyDataSetChanged();
     }
 
+    public void refreshCovers() { adapter.notifyDataSetChanged(); }
+
     void toast(String s) { Toast.makeText(getContext(), s, Toast.LENGTH_SHORT).show(); }
+
+    void showSettings() {
+        final Context c = getContext();
+        final android.app.Dialog d = new android.app.Dialog(c);
+        d.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
+        LinearLayout box = new LinearLayout(c);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(dp(16), dp(16), dp(16), dp(10));
+        box.setBackground(glass(dp(26)));
+        TextView title = new TextView(c);
+        title.setText("Configurações");
+        title.setTextColor(0xFF1B1F27);
+        title.setTextSize(18);
+        title.setTypeface(Typeface.DEFAULT_BOLD);
+        title.setPadding(dp(6), 0, 0, dp(12));
+        box.addView(title);
+        String[] tx = {"Configuração de tela", "Configuração de áudio", "Configuração de controle", "Configuração de saves", "Avançado"};
+        int[] ty = {Icons.SCREEN, Icons.AUDIO, Icons.PAD, Icons.SAVE, Icons.ADV};
+        int[] bg = {0xFF1E6BE6, 0xFFFFA000, 0xFF7E57C2, 0xFF2EAD4B, 0xFF3A3C42};
+        for (int i = 0; i < 5; i++) {
+            LinearLayout row = new LinearLayout(c);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setPadding(dp(8), dp(4), dp(14), dp(4));
+            GradientDrawable rg = new GradientDrawable();
+            rg.setColor(0x99FFFFFF);
+            rg.setCornerRadius(dp(18));
+            rg.setStroke(dp(1), 0xCCFFFFFF);
+            row.setBackground(rg);
+            row.addView(new DockBtn(c, ty[i], bg[i], Color.WHITE, false), new LinearLayout.LayoutParams(dp(52), dp(52)));
+            TextView t = new TextView(c);
+            t.setText(tx[i]);
+            t.setTextColor(0xFF1B1F27);
+            t.setTextSize(15);
+            t.setTypeface(Typeface.DEFAULT_BOLD);
+            LinearLayout.LayoutParams tl2 = new LinearLayout.LayoutParams(0, -2, 1f);
+            tl2.leftMargin = dp(6);
+            row.addView(t, tl2);
+            TextView ar = new TextView(c);
+            ar.setText("›");
+            ar.setTextColor(0xFF8A93A3);
+            ar.setTextSize(22);
+            row.addView(ar);
+            final int k = i;
+            row.setOnClickListener(v -> {
+                d.dismiss();
+                if (k == 4) {
+                    new AlertDialog.Builder(c).setTitle("Avançado")
+                            .setItems(new String[]{"Selecionar pasta de ROMs", "Atualizar lista"}, (d2, w) -> {
+                                if (w == 0) host.pickDir(); else host.refresh();
+                            }).show();
+                } else if (k == 0) new VideoMenu(MenuView.this).show();
+                else toast("Em breve");
+            });
+            LinearLayout.LayoutParams rl = new LinearLayout.LayoutParams(-1, -2);
+            rl.bottomMargin = dp(8);
+            box.addView(row, rl);
+        }
+        d.setContentView(box);
+        android.view.Window w = d.getWindow();
+        if (w != null) {
+            w.setBackgroundDrawable(new ColorDrawable(0));
+            int sw = getResources().getDisplayMetrics().widthPixels;
+            w.setLayout(Math.min(dp(340), sw - dp(32)), -2);
+        }
+        d.show();
+    }
+
+    // ================= capas: escolha + janela de download =================
+    GradientDrawable pill(int col) {
+        GradientDrawable g = new GradientDrawable();
+        g.setColor(col);
+        g.setCornerRadius(dp(16));
+        return g;
+    }
+
+    TextView btn(String t, int bgc, int fg) {
+        TextView b = new TextView(getContext());
+        b.setText(t);
+        b.setTextColor(fg);
+        b.setTextSize(14);
+        b.setTypeface(Typeface.DEFAULT_BOLD);
+        b.setGravity(Gravity.CENTER);
+        b.setPadding(dp(12), dp(12), dp(12), dp(12));
+        b.setBackground(pill(bgc));
+        return b;
+    }
+
+    android.app.Dialog glassDialog(LinearLayout box) {
+        final android.app.Dialog d = new android.app.Dialog(getContext());
+        d.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
+        box.setPadding(dp(18), dp(18), dp(18), dp(14));
+        box.setBackground(glass(dp(26)));
+        d.setContentView(box);
+        android.view.Window w = d.getWindow();
+        if (w != null) {
+            w.setBackgroundDrawable(new ColorDrawable(0));
+            int sw = getResources().getDisplayMetrics().widthPixels;
+            w.setLayout(Math.min(dp(320), sw - dp(40)), -2);
+        }
+        return d;
+    }
+
+    TextView label(String t, float sz, int col, boolean bold) {
+        TextView v = new TextView(getContext());
+        v.setText(t);
+        v.setTextSize(sz);
+        v.setTextColor(col);
+        if (bold) v.setTypeface(Typeface.DEFAULT_BOLD);
+        return v;
+    }
+
+    void showCoverChoice() {
+        if (CoverService.running) { showCoverProgress(); return; }
+        final Context c = getContext();
+        LinearLayout box = new LinearLayout(c);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.addView(label("Capas dos jogos", 18, 0xFF1B1F27, true));
+        TextView m = label("Deseja baixar as capas dos seus jogos? O download continua em segundo plano.", 14, 0xFF4A5363, false);
+        m.setPadding(0, dp(8), 0, dp(14));
+        box.addView(m);
+        LinearLayout row = new LinearLayout(c);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        TextView no = btn("Agora não", 0xFFE3E7EE, 0xFF1B1F27);
+        TextView yes = btn("Baixar capas", 0xFF2EAD4B, Color.WHITE);
+        row.addView(no, new LinearLayout.LayoutParams(0, -2, 1f));
+        LinearLayout.LayoutParams yl = new LinearLayout.LayoutParams(0, -2, 1f);
+        yl.leftMargin = dp(8);
+        row.addView(yes, yl);
+        box.addView(row);
+        final android.app.Dialog d = glassDialog(box);
+        no.setOnClickListener(v -> d.dismiss());
+        yes.setOnClickListener(v -> {
+            d.dismiss();
+            if (games.isEmpty()) { toast("Nenhum jogo na lista."); return; }
+            if (Build.VERSION.SDK_INT >= 33 && c instanceof android.app.Activity
+                    && c.checkSelfPermission("android.permission.POST_NOTIFICATIONS") != android.content.pm.PackageManager.PERMISSION_GRANTED)
+                ((android.app.Activity) c).requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 77);
+            CoverService.listener = (g, f) -> post(() -> {
+                for (Game x : games) if (x.name.equals(g.name)) x.cover = Uri.fromFile(f);
+                adapter.notifyDataSetChanged();
+            });
+            CoverService.start(c.getApplicationContext(), games);
+            showCoverProgress();
+        });
+        d.show();
+    }
+
+    static String fmtSize(long b) {
+        if (b < 1024) return b + " B";
+        if (b < 1024 * 1024) return String.format(java.util.Locale.getDefault(), "%.0f KB", b / 1024.0);
+        return String.format(java.util.Locale.getDefault(), "%.1f MB", b / 1048576.0);
+    }
+
+    void showCoverProgress() {
+        final Context c = getContext();
+        LinearLayout box = new LinearLayout(c);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.addView(label("Baixando capas", 18, 0xFF1B1F27, true));
+        final TextView st = label("Iniciando...", 13, 0xFF4A5363, false);
+        st.setPadding(0, dp(8), 0, dp(8));
+        st.setSingleLine(true);
+        st.setEllipsize(TextUtils.TruncateAt.MIDDLE);
+        box.addView(st);
+        final android.widget.ProgressBar pb = new android.widget.ProgressBar(c, null, android.R.attr.progressBarStyleHorizontal);
+        pb.setMax(100);
+        box.addView(pb, new LinearLayout.LayoutParams(-1, dp(12)));
+        final TextView info = label("", 13, 0xFF1B1F27, true);
+        info.setPadding(0, dp(10), 0, dp(14));
+        box.addView(info);
+        LinearLayout row = new LinearLayout(c);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        final TextView cancel = btn("Cancelar", 0xFFE3E7EE, 0xFF1B1F27);
+        final TextView bg = btn("Segundo plano", 0xFF1E6BE6, Color.WHITE);
+        row.addView(cancel, new LinearLayout.LayoutParams(0, -2, 1f));
+        LinearLayout.LayoutParams bl = new LinearLayout.LayoutParams(0, -2, 1f);
+        bl.leftMargin = dp(8);
+        row.addView(bg, bl);
+        box.addView(row);
+        final android.app.Dialog d = glassDialog(box);
+        bg.setOnClickListener(v -> d.dismiss());
+        cancel.setOnClickListener(v -> { CoverService.cancel(); });
+        final Runnable[] tick = new Runnable[1];
+        tick[0] = () -> {
+            if (!d.isShowing()) return;
+            boolean run = CoverService.running;
+            int t = Math.max(CoverService.total, 1), dn = CoverService.done;
+            long end = run ? System.currentTimeMillis() : (CoverService.endMs > 0 ? CoverService.endMs : System.currentTimeMillis());
+            long secs = Math.max(0, (end - CoverService.startMs) / 1000);
+            pb.setProgress(run ? dn * 100 / t : (CoverService.status.equals("Concluído") ? 100 : dn * 100 / t));
+            st.setText(run ? dn + "/" + CoverService.total + " · " + CoverService.status : CoverService.status);
+            info.setText("Tempo: " + secs + " s   •   Tamanho: " + fmtSize(CoverFetcher.BYTES.get()));
+            if (!run) {
+                cancel.setVisibility(GONE);
+                ((TextView) bg).setText("Fechar");
+                return;
+            }
+            postDelayed(tick[0], 500);
+        };
+        d.show();
+        tick[0].run();
+    }
 
     void dockAction(int k) {
         switch (k) {
-            case 0: grid.smoothScrollToPosition(0); break;
-            case 3: host.pickDir(); break;
-            case 6:
-                new AlertDialog.Builder(getContext())
-                        .setTitle("GBA-MAX")
-                        .setItems(new String[]{"Selecionar pasta de ROMs", "Atualizar lista"}, (d, w) -> {
-                            if (w == 0) host.pickDir(); else host.refresh();
-                        }).show();
-                break;
+            case 0: host.pickDir(); break;
+            case 1: new VideoMenu(this).show(); break;
+            case 4: showCoverChoice(); break;
+            case 5: showSettings(); break;
             default: toast("Em breve");
         }
     }
@@ -531,6 +742,22 @@ public class MenuView extends FrameLayout {
             fill.setShader(new LinearGradient(0, r.top, 0, r.top + r.height() * .5f,
                     0x66FFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP));
             c.drawRect(r.left, r.top, r.right, r.top + r.height() * .5f, fill);
+            // efeito de vidro por cima: véu fosco, brilho diagonal e borda interna
+            fill.setShader(null);
+            fill.setColor(0x0AFFFFFF);
+            c.drawRect(r, fill);
+            fill.setColor(0xFF000000);
+            fill.setShader(new LinearGradient(r.left, r.top, r.right, r.bottom,
+                    new int[]{0x40FFFFFF, 0x12FFFFFF, 0x00FFFFFF, 0x18FFFFFF},
+                    new float[]{0f, .32f, .6f, 1f}, Shader.TileMode.CLAMP));
+            c.drawRect(r, fill);
+            fill.setShader(new LinearGradient(0, r.bottom - r.height() * .3f, 0, r.bottom,
+                    0x00000000, 0x22000000, Shader.TileMode.CLAMP));
+            c.drawRect(r.left, r.bottom - r.height() * .3f, r.right, r.bottom, fill);
+            line.setStyle(Paint.Style.STROKE);
+            line.setStrokeWidth(dp(1));
+            line.setColor(0x80FFFFFF);
+            c.drawRoundRect(r.left + dp(2), r.top + dp(2), r.right - dp(2), r.bottom - dp(2), rad - dp(2), rad - dp(2), line);
             fill.setShader(null);
             c.restore();
             // moldura
@@ -550,41 +777,56 @@ public class MenuView extends FrameLayout {
     class DockBtn extends View {
         final int type, col, icol;
         final boolean sel;
+        boolean glow;
         final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
 
         DockBtn(Context c, int type, int col, int icol, boolean sel) {
             super(c);
             this.type = type; this.col = col; this.icol = icol; this.sel = sel;
-            setElevation(dp(sel ? 10 : 5));
-            if (sel) { setScaleX(1.1f); setScaleY(1.1f); }
+            setElevation(dp(5));
+            setOnHoverListener((v, e) -> {
+                int a = e.getActionMasked();
+                if (a == android.view.MotionEvent.ACTION_HOVER_ENTER) setGlow(true);
+                else if (a == android.view.MotionEvent.ACTION_HOVER_EXIT) setGlow(false);
+                return false;
+            });
+            setOnTouchListener((v, e) -> {
+                int a = e.getActionMasked();
+                if (a == android.view.MotionEvent.ACTION_DOWN) setGlow(true);
+                else if (a == android.view.MotionEvent.ACTION_UP || a == android.view.MotionEvent.ACTION_CANCEL) setGlow(false);
+                return false;
+            });
             setOutlineProvider(new ViewOutlineProvider() {
                 @Override public void getOutline(View v, Outline o) {
-                    float r = Math.min(v.getWidth(), v.getHeight()) / 2f - dp(3);
+                    float r = Math.min(v.getWidth(), v.getHeight()) / 2f - dp(5);
                     float cx = v.getWidth() / 2f, cy = v.getHeight() / 2f;
                     o.setOval((int) (cx - r), (int) (cy - r), (int) (cx + r), (int) (cy + r));
                 }
             });
         }
 
+        void setGlow(boolean g) { if (glow != g) { glow = g; invalidate(); } }
+
         @Override protected void onDraw(Canvas c) {
             float w = getWidth(), h = getHeight(), cx = w / 2, cy = h / 2;
-            float r = Math.min(w, h) / 2f - dp(3);
-            if (sel) {
-                p.setStyle(Paint.Style.STROKE);
-                p.setStrokeWidth(dp(3));
-                p.setColor(0x802F7BFF);
-                c.drawCircle(cx, cy, r + dp(2), p);
+            float r = Math.min(w, h) / 2f - dp(5);
+            if (glow) {
+                float gr = r + dp(5);
+                p.setStyle(Paint.Style.FILL);
+                p.setShader(new RadialGradient(cx, cy, gr, new int[]{0xFF4D9BFF, 0xFF4D9BFF, 0x004D9BFF},
+                        new float[]{0f, (r - dp(1)) / gr, 1f}, Shader.TileMode.CLAMP));
+                c.drawCircle(cx, cy, gr, p);
             }
             p.setStyle(Paint.Style.FILL);
             p.setShader(new LinearGradient(0, cy - r, 0, cy + r, mix(col, Color.WHITE, .35f),
-                    mix(col, Color.BLACK, .18f), Shader.TileMode.CLAMP));
+                    mix(col, Color.BLACK, col == 0xFFFFFFFF ? .06f : .18f), Shader.TileMode.CLAMP));
             c.drawCircle(cx, cy, r, p);
             p.setShader(new LinearGradient(0, cy - r, 0, cy, 0xAAFFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP));
             c.drawOval(new RectF(cx - r * .72f, cy - r * .94f, cx + r * .72f, cy - r * .05f), p);
             p.setShader(null);
             p.setStyle(Paint.Style.STROKE);
             p.setStrokeWidth(dp(1.2f));
-            p.setColor(0xCCFFFFFF);
+            p.setColor(glow ? 0xFFBBD8FF : 0xCCFFFFFF);
             c.drawCircle(cx, cy, r - dp(.6f), p);
             Icons.draw(c, type, cx, cy, r * .5f, icol, p);
         }
@@ -617,11 +859,17 @@ public class MenuView extends FrameLayout {
             p.setStrokeWidth(den * 1.5f);
             p.setColor(0xFF1B1F27);
             c.drawRoundRect(body, den * 4, den * 4, p);
-            p.setStyle(Paint.Style.FILL);
-            p.setColor(chg ? 0xFF2EAD4B : pct <= 15 ? 0xFFE53935 : 0xFF1B1F27);
+            int on = pct <= 0 ? 0 : pct <= 25 ? 1 : pct <= 50 ? 2 : pct <= 75 ? 3 : 4;
+            int col = pct <= 25 ? 0xFFE53935 : pct <= 50 ? 0xFFFB8C00 : pct <= 75 ? 0xFFFDD835 : 0xFF2EAD4B;
             float l = body.left + den * 2.5f, t = body.top + den * 2.5f, b = body.bottom - den * 2.5f;
-            float rgt = l + (body.width() - den * 5f) * Math.max(3, pct) / 100f;
-            c.drawRoundRect(l, t, rgt, b, den * 2, den * 2, p);
+            float gap = den * 1.5f, bw = (body.width() - den * 5f - gap * 3) / 4f;
+            p.setStyle(Paint.Style.FILL);
+            for (int i = 0; i < 4; i++) {
+                p.setColor(i < on ? col : 0x261B1F27);
+                float x0 = l + i * (bw + gap);
+                c.drawRoundRect(x0, t, x0 + bw, b, den * .8f, den * .8f, p);
+            }
+            p.setColor(0xFF1B1F27);
             c.drawRoundRect(w - nub, h * .3f, w, h * .7f, den * 1.5f, den * 1.5f, p);
         }
     }
@@ -637,7 +885,7 @@ public class MenuView extends FrameLayout {
 
     // ================= ícones desenhados em código =================
     static class Icons {
-        static final int WIFI = 0, HEAD = 1, HOME = 2, CHAT = 3, BAG = 4, LIB = 5, FACE = 6, PAD = 7, GEAR = 8, COIN = 9;
+        static final int WIFI = 0, HEAD = 1, HOME = 2, CHAT = 3, BAG = 4, LIB = 5, FACE = 6, PAD = 7, GEAR = 8, COIN = 9, CAL = 10, CLOCK = 11, SCREEN = 12, AUDIO = 13, SAVE = 14, ADV = 15;
 
         static void draw(Canvas c, int t, float x, float y, float r, int col, Paint p) {
             p.setShader(null);
@@ -746,6 +994,74 @@ public class MenuView extends FrameLayout {
                     p.setStyle(Paint.Style.STROKE);
                     p.setStrokeWidth(r * .34f);
                     c.drawCircle(x, y, r * .62f, p);
+                    break;
+                case CAL:
+                    p.setStyle(Paint.Style.STROKE);
+                    p.setStrokeWidth(r * .18f);
+                    q.set(x - .85f * r, y - .72f * r, x + .85f * r, y + .88f * r);
+                    c.drawRoundRect(q, r * .22f, r * .22f, p);
+                    c.drawLine(x - .85f * r, y - .2f * r, x + .85f * r, y - .2f * r, p);
+                    c.drawLine(x - .4f * r, y - .98f * r, x - .4f * r, y - .5f * r, p);
+                    c.drawLine(x + .4f * r, y - .98f * r, x + .4f * r, y - .5f * r, p);
+                    p.setStyle(Paint.Style.FILL);
+                    c.drawCircle(x - .4f * r, y + .25f * r, r * .12f, p);
+                    c.drawCircle(x + .4f * r, y + .25f * r, r * .12f, p);
+                    c.drawCircle(x - .4f * r, y + .62f * r, r * .12f, p);
+                    break;
+                case CLOCK:
+                    p.setStyle(Paint.Style.STROKE);
+                    p.setStrokeWidth(r * .18f);
+                    c.drawCircle(x, y, r * .88f, p);
+                    c.drawLine(x, y, x, y - .5f * r, p);
+                    c.drawLine(x, y, x + .38f * r, y + .2f * r, p);
+                    break;
+                case SCREEN:
+                    p.setStyle(Paint.Style.STROKE);
+                    p.setStrokeWidth(r * .18f);
+                    q.set(x - .9f * r, y - .75f * r, x + .9f * r, y + .45f * r);
+                    c.drawRoundRect(q, r * .2f, r * .2f, p);
+                    c.drawLine(x, y + .45f * r, x, y + .8f * r, p);
+                    c.drawLine(x - .5f * r, y + .85f * r, x + .5f * r, y + .85f * r, p);
+                    break;
+                case AUDIO: {
+                    p.setStyle(Paint.Style.FILL);
+                    Path sp = new Path();
+                    sp.moveTo(x - .9f * r, y - .3f * r);
+                    sp.lineTo(x - .5f * r, y - .3f * r);
+                    sp.lineTo(x - .05f * r, y - .72f * r);
+                    sp.lineTo(x - .05f * r, y + .72f * r);
+                    sp.lineTo(x - .5f * r, y + .3f * r);
+                    sp.lineTo(x - .9f * r, y + .3f * r);
+                    sp.close();
+                    c.drawPath(sp, p);
+                    p.setStyle(Paint.Style.STROKE);
+                    p.setStrokeWidth(r * .17f);
+                    q.set(x - .05f * r - .5f * r, y - .5f * r, x - .05f * r + .5f * r, y + .5f * r);
+                    c.drawArc(q, -50, 100, false, p);
+                    q.set(x - .05f * r - .95f * r, y - .95f * r, x - .05f * r + .95f * r, y + .95f * r);
+                    c.drawArc(q, -50, 100, false, p);
+                    break;
+                }
+                case SAVE:
+                    p.setStyle(Paint.Style.STROKE);
+                    p.setStrokeWidth(r * .17f);
+                    q.set(x - .85f * r, y - .85f * r, x + .85f * r, y + .85f * r);
+                    c.drawRoundRect(q, r * .18f, r * .18f, p);
+                    q.set(x - .45f * r, y - .85f * r, x + .4f * r, y - .3f * r);
+                    c.drawRect(q, p);
+                    q.set(x - .5f * r, y + .1f * r, x + .5f * r, y + .85f * r);
+                    c.drawRect(q, p);
+                    break;
+                case ADV:
+                    p.setStyle(Paint.Style.STROKE);
+                    p.setStrokeWidth(r * .17f);
+                    c.drawLine(x - .85f * r, y - .55f * r, x + .85f * r, y - .55f * r, p);
+                    c.drawLine(x - .85f * r, y, x + .85f * r, y, p);
+                    c.drawLine(x - .85f * r, y + .55f * r, x + .85f * r, y + .55f * r, p);
+                    p.setStyle(Paint.Style.FILL);
+                    c.drawCircle(x - .35f * r, y - .55f * r, r * .24f, p);
+                    c.drawCircle(x + .4f * r, y, r * .24f, p);
+                    c.drawCircle(x - .1f * r, y + .55f * r, r * .24f, p);
                     break;
                 case COIN:
                     p.setStyle(Paint.Style.FILL);
