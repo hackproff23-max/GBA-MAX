@@ -56,6 +56,8 @@ public class MainActivity extends Activity {
     volatile boolean run;
     AudioTrack at;
     boolean ready, loaded, inGame, built, asked, autoScanned;
+    boolean menuOpen; // menu dentro do jogo aberto (jogo pausado)
+    GameMenu gm;
     String sav;
 
     // ================= início e diagnóstico =================
@@ -93,7 +95,8 @@ public class MainActivity extends Activity {
             gl.setVisibility(View.GONE);
             gv = new GameView(this);
             gv.gl = gl;
-            gv.onRom = this::showMenu;
+            gv.onRom = this::openGameMenu;
+            gm = null;
             gv.setVisibility(View.GONE);
             mv = new MenuView(this, new MenuView.Host() {
                 @Override public void play(MenuView.Game g) { playGame(g); }
@@ -102,7 +105,8 @@ public class MainActivity extends Activity {
                     if (dirUri != null) scan(dirUri); else { autoScanned = false; ensureFolder(); }
                 }
                 @Override public void videoChanged() {
-                    // a orientação escolhida só é aplicada ao entrar no jogo / editor de layout
+                    // a orientação escolhida só vale no jogo / editor de layout
+                    if (inGame) VideoSettings.applyOrientation(MainActivity.this);
                     if (gl != null) gl.reloadShader();
                 }
                 @Override public void editLayout() { startLayoutEdit(); }
@@ -406,7 +410,50 @@ public class MainActivity extends Activity {
         start();
     }
 
+    // ================= menu dentro do jogo =================
+    void openGameMenu() {
+        if (!inGame || menuOpen) return;
+        if (gm == null) gm = new GameMenu(this);
+        gm.open();
+    }
+
+    void pauseGame() {
+        menuOpen = true;
+        stop();
+        save();
+        gv.touch = 0; gv.ta = false; gv.tb = false;
+        gv.knob = false; gv.pressed = 0; gv.crossM = 0;
+        gv.setVisibility(View.GONE);
+    }
+
+    void resumeGame() {
+        menuOpen = false;
+        if (!inGame) return;
+        gv.setVisibility(View.VISIBLE);
+        gv.recalc();
+        start();
+    }
+
+    String statePath(int slot) { return sav.substring(0, sav.length() - 4) + ".st" + slot; }
+
+    void afterLoadState() {
+        Native.setSkip(false);
+        Native.run();
+        Native.audio(new short[8192]);
+        gl.requestRender();
+    }
+
+    void resetGame() {
+        Native.reset();
+        Native.setSkip(false);
+        Native.run();
+        Native.audio(new short[8192]);
+        gl.requestRender();
+    }
+
     void showMenu() {
+        if (gm != null) gm.dismissAll();
+        menuOpen = false;
         stop();
         save();
         inGame = false;
@@ -419,7 +466,12 @@ public class MainActivity extends Activity {
 
     // ================= vídeo: editar layout e importar shaders =================
     void startLayoutEdit() {
-        if (inGame) return;
+        if (inGame) {
+            if (gm != null) gm.dismissAll();
+            gv.setVisibility(View.VISIBLE);
+            gv.startEdit(this::endLayoutEdit);
+            return;
+        }
         VideoSettings.applyOrientation(this); // edita na orientação escolhida
         mv.setVisibility(View.GONE);
         gl.setVisibility(View.VISIBLE);
@@ -428,6 +480,7 @@ public class MainActivity extends Activity {
     }
 
     void endLayoutEdit() {
+        if (inGame) { resumeGame(); return; }
         gv.setVisibility(View.GONE);
         gl.setVisibility(View.GONE);
         VideoSettings.applyMenuOrientation(this);
@@ -458,8 +511,10 @@ public class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
+        if (gm != null && gm.coresOpen) { gm.closeCores(); return; }
         if (gv != null && gv.editing) { gv.cancelEdit(); endLayoutEdit(); return; }
-        if (inGame) showMenu(); else super.onBackPressed();
+        if (inGame) { if (menuOpen) resumeGame(); else openGameMenu(); }
+        else super.onBackPressed();
     }
 
     void save() { if (loaded && sav != null) Native.saveSram(sav); }
@@ -467,8 +522,9 @@ public class MainActivity extends Activity {
     void start() {
         if (!loaded || run) return;
         int sr = (int) Math.round(Native.rate());
+        int mult = VideoSettings.abuf == 0 ? 1 : VideoSettings.abuf == 1 ? 2 : 4;
         int buf = Math.max(AudioTrack.getMinBufferSize(sr, AudioFormat.CHANNEL_OUT_STEREO,
-                AudioFormat.ENCODING_PCM_16BIT) * 2, 8192);
+                AudioFormat.ENCODING_PCM_16BIT) * 2, 8192) * mult;
         at = new AudioTrack.Builder()
                 .setAudioAttributes(new AudioAttributes.Builder()
                         .setUsage(AudioAttributes.USAGE_GAME)
@@ -479,6 +535,7 @@ public class MainActivity extends Activity {
                         .setChannelMask(AudioFormat.CHANNEL_OUT_STEREO).build())
                 .setBufferSizeInBytes(buf)
                 .build();
+        at.setVolume(VideoSettings.mute ? 0f : VideoSettings.volume / 100f);
         at.play();
         run = true;
         mark("rodar o jogo (run)");
@@ -504,7 +561,7 @@ public class MainActivity extends Activity {
         while (run) {
             long t0 = System.nanoTime();
             boolean f = gv.ff;
-            int n = f ? 4 : 1; // fast-forward 4x
+            int n = f ? Math.max(2, VideoSettings.ffSpeed) : 1; // avanço rápido
             int fs = VideoSettings.frameskip; // pulo de quadros
             for (int i = 0; i < n; i++) {
                 frame++;
@@ -529,7 +586,7 @@ public class MainActivity extends Activity {
         if (gl != null) gl.onResume();
         if (!built) return;
         ensureFolder();
-        if (inGame) start();
+        if (inGame && !menuOpen) start();
     }
     @Override protected void onDestroy() { super.onDestroy(); stop(); save(); }
 }

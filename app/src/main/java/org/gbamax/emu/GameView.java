@@ -459,6 +459,9 @@ public class GameView extends View {
     protected void onDraw(Canvas c) {
         if (editing) drawEdit(c);
         boolean ed = editing;
+        int al = ed ? 255 : Math.max(10, Math.min(100, VideoSettings.ctlAlpha)) * 255 / 100;
+        boolean lay = al < 255;
+        if (lay) c.saveLayerAlpha(0, 0, getWidth(), getHeight(), al);
         p.setStrokeWidth(3);
         if (!isHid(DPAD) || ed) {
             boolean h = isHid(DPAD);
@@ -486,6 +489,7 @@ public class GameView extends View {
             p.setTextSize(ts);
             c.drawText(LAB[i], px[i], py[i] + ts * 0.35f, p);
         }
+        if (lay) c.restore();
     }
 
     @Override
@@ -544,6 +548,8 @@ public class GameView extends View {
                 }
             }
         }
+        if (VideoSettings.vibrate && ((m & ~touch) != 0 || (pr2 & ~pressed) != 0))
+            performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
         touch = m; ta = t1; tb = t2; knob = k; pressed = pr2; crossM = cm;
         invalidate();
         return true;

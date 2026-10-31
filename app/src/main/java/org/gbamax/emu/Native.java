@@ -15,4 +15,7 @@ public class Native {
     static native double rate();
     static native boolean saveSram(String path);
     static native void loadSram(String path);
+    static native boolean saveState(String path);
+    static native boolean loadState(String path);
+    static native void reset();
 }

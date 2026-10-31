@@ -5,6 +5,7 @@
 #include <vector>
 #include <string>
 #include <cstdio>
+#include <cstdint>
 #include <cstring>
 #include <algorithm>
 #include "libretro.h"
@@ -23,6 +24,10 @@ static void (*f_run)(void);
 static void (*f_av)(struct retro_system_av_info*);
 static void* (*f_mem)(unsigned);
 static size_t (*f_msz)(unsigned);
+static size_t (*f_ssz)(void);
+static bool (*f_ser)(void*, size_t);
+static bool (*f_unser)(const void*, size_t);
+static void (*f_reset)(void);
 
 static std::mutex vm, am;
 static std::vector<uint32_t> frame;
@@ -105,6 +110,8 @@ JNIEXPORT jboolean JNICALL Java_org_gbamax_emu_Native_init(JNIEnv* e, jclass, js
     SYM(f_init, "retro_init"); SYM(f_load, "retro_load_game"); SYM(f_unload, "retro_unload_game");
     SYM(f_run, "retro_run"); SYM(f_av, "retro_get_system_av_info");
     SYM(f_mem, "retro_get_memory_data"); SYM(f_msz, "retro_get_memory_size");
+    SYM(f_ssz, "retro_serialize_size"); SYM(f_ser, "retro_serialize");
+    SYM(f_unser, "retro_unserialize"); SYM(f_reset, "retro_reset");
     if (!f_env || !f_init || !f_load || !f_run) return JNI_FALSE;
     f_env(env); f_vid(video); f_as(audio1); f_ab(audioN); f_poll(poll); f_st(input);
     f_init();
@@ -133,6 +140,7 @@ JNIEXPORT void JNICALL Java_org_gbamax_emu_Native_run(JNIEnv*, jclass) { f_run()
 JNIEXPORT void JNICALL Java_org_gbamax_emu_Native_input(JNIEnv*, jclass, jint m) { pad = m; }
 JNIEXPORT void JNICALL Java_org_gbamax_emu_Native_setSkip(JNIEnv*, jclass, jboolean s) { skipv = s; }
 JNIEXPORT jdouble JNICALL Java_org_gbamax_emu_Native_rate(JNIEnv*, jclass) { return sr; }
+JNIEXPORT void JNICALL Java_org_gbamax_emu_Native_reset(JNIEnv*, jclass) { if (f_reset) f_reset(); }
 
 JNIEXPORT void JNICALL Java_org_gbamax_emu_Native_draw(JNIEnv* e, jclass, jobject bm) {
     AndroidBitmapInfo i;
@@ -177,6 +185,39 @@ JNIEXPORT void JNICALL Java_org_gbamax_emu_Native_loadSram(JNIEnv* e, jclass, js
     FILE* f = fopen(p, "rb");
     if (f) { fread(m, 1, s, f); fclose(f); }
     e->ReleaseStringUTFChars(path, p);
+}
+
+// ================= estados salvos =================
+JNIEXPORT jboolean JNICALL Java_org_gbamax_emu_Native_saveState(JNIEnv* e, jclass, jstring path) {
+    if (!f_ssz || !f_ser) return JNI_FALSE;
+    size_t s = f_ssz();
+    if (!s) return JNI_FALSE;
+    std::vector<uint8_t> buf(s);
+    if (!f_ser(buf.data(), s)) return JNI_FALSE;
+    const char* p = e->GetStringUTFChars(path, 0);
+    FILE* f = fopen(p, "wb");
+    bool ok = false;
+    if (f) { ok = fwrite(buf.data(), 1, s, f) == s; fclose(f); }
+    e->ReleaseStringUTFChars(path, p);
+    return ok ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL Java_org_gbamax_emu_Native_loadState(JNIEnv* e, jclass, jstring path) {
+    if (!f_unser) return JNI_FALSE;
+    const char* p = e->GetStringUTFChars(path, 0);
+    FILE* f = fopen(p, "rb");
+    e->ReleaseStringUTFChars(path, p);
+    if (!f) return JNI_FALSE;
+    fseek(f, 0, SEEK_END);
+    long n = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    bool ok = false;
+    if (n > 0) {
+        std::vector<uint8_t> buf((size_t)n);
+        if (fread(buf.data(), 1, (size_t)n, f) == (size_t)n) ok = f_unser(buf.data(), (size_t)n);
+    }
+    fclose(f);
+    return ok ? JNI_TRUE : JNI_FALSE;
 }
 
 }

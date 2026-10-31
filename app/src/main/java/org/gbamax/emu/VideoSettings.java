@@ -19,6 +19,15 @@ public class VideoSettings {
     public static volatile int sat = 100;      // 0..200 (%)
     public static volatile int gamma = 100;    // 50..200 (/100)
     public static volatile int lcd = 0;        // 0..100 (%)
+    // áudio
+    public static volatile int volume = 100;   // 0..100
+    public static volatile boolean mute = false;
+    public static volatile int abuf = 0;       // 0 pequeno, 1 médio, 2 grande
+    // controle
+    public static volatile int ctlAlpha = 100; // opacidade dos botões (10..100)
+    public static volatile boolean vibrate = false;
+    // avançado
+    public static volatile int ffSpeed = 4;    // velocidade do avanço rápido
 
     static SharedPreferences sp(Context c) { return c.getSharedPreferences("gbamax_video", 0); }
 
@@ -32,13 +41,22 @@ public class VideoSettings {
         sat = p.getInt("sat", 100);
         gamma = p.getInt("gamma", 100);
         lcd = p.getInt("lcd", 0);
+        volume = p.getInt("volume", 100);
+        mute = p.getBoolean("mute", false);
+        abuf = p.getInt("abuf", 0);
+        ctlAlpha = p.getInt("ctlAlpha", 100);
+        vibrate = p.getBoolean("vibrate", false);
+        ffSpeed = p.getInt("ffSpeed", 4);
     }
 
     public static void save(Context c) {
         sp(c).edit().putInt("orient", orient).putInt("frameskip", frameskip)
                 .putString("shader", shader).putInt("bright", bright)
                 .putInt("contrast", contrast).putInt("sat", sat)
-                .putInt("gamma", gamma).putInt("lcd", lcd).apply();
+                .putInt("gamma", gamma).putInt("lcd", lcd)
+                .putInt("volume", volume).putBoolean("mute", mute).putInt("abuf", abuf)
+                .putInt("ctlAlpha", ctlAlpha).putBoolean("vibrate", vibrate)
+                .putInt("ffSpeed", ffSpeed).apply();
     }
 
     public static void resetColors() { bright = 0; contrast = 100; sat = 100; gamma = 100; lcd = 0; }
