@@ -293,7 +293,7 @@ public class MenuView extends FrameLayout {
         selected = sel;
         if (selected == null && !games.isEmpty()) selected = games.get(0).name;
         coins.setText(String.valueOf(games.size()));
-        empty.setText(dir ? "Nenhum jogo .zip encontrado nesta pasta."
+        empty.setText(dir ? "Nenhum jogo .zip encontrado.\nColoque seus jogos na pasta GBA-MAX\ndo armazenamento interno."
                 : "Toque em Biblioteca (ícone azul)\npara escolher a pasta de ROMs.");
         empty.setVisibility(games.isEmpty() ? VISIBLE : GONE);
         adapter.notifyDataSetChanged();
