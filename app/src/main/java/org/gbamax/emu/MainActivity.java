@@ -61,6 +61,7 @@ public class MainActivity extends Activity {
     String sav;      // GBA-MAX/Data/<jogo>.sav
     String stBase;   // GBA-MAX/Saves/<jogo>  (+ .st1 ... .st5)
     String gameName; // nome do jogo que está sendo aberto
+    long autoNs;     // tempo jogado desde o último salvamento automático
 
     // ================= início e diagnóstico =================
     @Override
@@ -461,6 +462,7 @@ public class MainActivity extends Activity {
         if (!ok) { toast("ROM inválida"); return; }
         Native.loadSram(sav);
         loaded = true;
+        autoNs = 0;
         VideoSettings.openGame(this, nome); // configurações próprias do jogo (.json)
         if (gl != null) gl.reloadShader();
         aplicarCheats(nome);
@@ -496,7 +498,24 @@ public class MainActivity extends Activity {
         start();
     }
 
-    String statePath(int slot) { return stBase + ".st" + slot; }
+    // slots 1..5 = manuais (.st1..5); slots 101..103 = automáticos (.auto1..3)
+    String statePath(int slot) {
+        return slot > 100 ? stBase + ".auto" + (slot - 100) : stBase + ".st" + slot;
+    }
+
+    /** Salvamento automático: 3 slots em rodízio, sempre sobrescreve o mais antigo. */
+    void autoSave() {
+        if (!loaded || stBase == null) return;
+        int best = 1;
+        long old = Long.MAX_VALUE;
+        for (int i = 1; i <= 3; i++) {
+            File f = new File(statePath(100 + i));
+            long m = f.isFile() ? f.lastModified() : 0;
+            if (m < old) { old = m; best = i; }
+        }
+        if (Native.saveState(statePath(100 + best)))
+            runOnUiThread(() -> Toast.makeText(this, "Salvamento automático", Toast.LENGTH_SHORT).show());
+    }
 
     void afterLoadState() {
         Native.setSkip(false);
@@ -642,6 +661,8 @@ public class MainActivity extends Activity {
             }
             long r = T - (System.nanoTime() - t0);
             if (r > 0) LockSupport.parkNanos(r);
+            autoNs += System.nanoTime() - t0;
+            if (autoNs >= 60_000_000_000L) { autoNs = 0; autoSave(); } // a cada 1 minuto jogado
         }
     }
 

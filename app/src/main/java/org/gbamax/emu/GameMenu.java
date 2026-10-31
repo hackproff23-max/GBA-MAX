@@ -165,8 +165,8 @@ class GameMenu {
         LinearLayout list = new LinearLayout(c);
         list.setOrientation(LinearLayout.VERTICAL);
         list.addView(row(MenuView.Icons.FACE, 0xFFE91E63, "Cores", "Shader, LCD, brilho, contraste...", this::openCores), lp());
-        list.addView(row(MenuView.Icons.SAVE, 0xFF2EAD4B, "Salvar estado", "5 slots", () -> slots(true)), lp());
-        list.addView(row(MenuView.Icons.LIB, 0xFF1E6BE6, "Carregar estado", "5 slots", () -> slots(false)), lp());
+        list.addView(row(MenuView.Icons.SAVE, 0xFF2EAD4B, "Salvar estado", "5 slots manuais", () -> slots(true)), lp());
+        list.addView(row(MenuView.Icons.LIB, 0xFF1E6BE6, "Carregar estado", "3 automáticos + 5 manuais", () -> slots(false)), lp());
         list.addView(row(MenuView.Icons.GEAR, 0xFF3A3C42, "Opções", "Vídeo, áudio, controle e avançado", this::options), lp());
         ScrollView sv = new ScrollView(c);
         sv.setVerticalScrollBarEnabled(false);
@@ -195,32 +195,52 @@ class GameMenu {
     }
 
     // ================= estados salvos =================
+    // slots 1..5 = manuais; 101..103 = automáticos (a cada 1 minuto jogado, só para carregar)
     void slots(final boolean save) {
         LinearLayout l = new LinearLayout(c);
         l.setOrientation(LinearLayout.VERTICAL);
-        SimpleDateFormat df = new SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault());
+        SimpleDateFormat df = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault());
+        int rows = 5;
+        if (!save) {
+            // o automático mais recente fica marcado
+            int newest = 0;
+            long nm = 0;
+            for (int s = 1; s <= 3; s++) {
+                File f = new File(a.statePath(100 + s));
+                if (f.isFile() && f.lastModified() > nm) { nm = f.lastModified(); newest = s; }
+            }
+            for (int s = 1; s <= 3; s++) {
+                final int slot = 100 + s;
+                File f = new File(a.statePath(slot));
+                String sub = f.isFile() ? df.format(new Date(f.lastModified())) : "Vazio";
+                if (s == newest) sub += "  (mais recente)";
+                l.addView(row(MenuView.Icons.LIB, 0xFFFFA000, "Automático " + s, sub, () -> doState(false, slot)), lp());
+            }
+            rows = 8;
+        }
         for (int s = 1; s <= 5; s++) {
             final int slot = s;
             File f = new File(a.statePath(s));
             String sub = f.exists() ? df.format(new Date(f.lastModified())) : "Vazio";
             l.addView(row(save ? MenuView.Icons.SAVE : MenuView.Icons.LIB, save ? 0xFF2EAD4B : 0xFF1E6BE6,
-                    "Slot " + s, sub, () -> doState(save, slot)), lp());
+                    "Manual " + s, sub, () -> doState(save, slot)), lp());
         }
-        pageDialog(save ? "Salvar estado" : "Carregar estado", l, 5, null).show();
+        pageDialog(save ? "Salvar estado" : "Carregar estado", l, rows, null).show();
     }
 
     void doState(boolean save, int slot) {
         String path = a.statePath(slot);
+        String nome = slot > 100 ? "automático " + (slot - 100) : "manual " + slot;
         if (save) {
             boolean ok = Native.saveState(path);
-            toast(ok ? "Estado salvo no slot " + slot : "Não foi possível salvar o estado");
+            toast(ok ? "Estado salvo no slot " + nome : "Não foi possível salvar o estado");
             if (ok) closeAll();
         } else {
             if (!new File(path).exists()) { toast("Slot vazio"); return; }
             boolean ok = Native.loadState(path);
             if (ok) {
                 a.afterLoadState();
-                toast("Estado carregado (slot " + slot + ")");
+                toast("Estado carregado (" + nome + ")");
                 closeAll();
             } else toast("Não foi possível carregar o estado");
         }
