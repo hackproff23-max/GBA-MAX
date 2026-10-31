@@ -546,14 +546,15 @@ public class MenuView extends FrameLayout {
             c.drawRect(r.left, r.top, r.right, r.top + r.height() * .5f, fill);
             // efeito de vidro por cima: véu fosco, brilho diagonal e borda interna
             fill.setShader(null);
-            fill.setColor(0x14FFFFFF);
+            fill.setColor(0x0AFFFFFF);
             c.drawRect(r, fill);
+            fill.setColor(0xFF000000);
             fill.setShader(new LinearGradient(r.left, r.top, r.right, r.bottom,
-                    new int[]{0x59FFFFFF, 0x1AFFFFFF, 0x00FFFFFF, 0x26FFFFFF},
+                    new int[]{0x40FFFFFF, 0x12FFFFFF, 0x00FFFFFF, 0x18FFFFFF},
                     new float[]{0f, .32f, .6f, 1f}, Shader.TileMode.CLAMP));
             c.drawRect(r, fill);
             fill.setShader(new LinearGradient(0, r.bottom - r.height() * .3f, 0, r.bottom,
-                    0x00000000, 0x33000000, Shader.TileMode.CLAMP));
+                    0x00000000, 0x22000000, Shader.TileMode.CLAMP));
             c.drawRect(r.left, r.bottom - r.height() * .3f, r.right, r.bottom, fill);
             line.setStyle(Paint.Style.STROKE);
             line.setStrokeWidth(dp(1));
