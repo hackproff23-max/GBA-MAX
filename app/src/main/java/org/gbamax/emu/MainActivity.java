@@ -2,43 +2,103 @@ package org.gbamax.emu;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.database.Cursor;
+import android.graphics.Color;
 import android.media.AudioAttributes;
 import android.media.AudioFormat;
 import android.media.AudioTrack;
 import android.net.Uri;
 import android.os.Bundle;
+import android.provider.DocumentsContract;
+import android.view.Gravity;
 import android.view.View;
 import android.view.WindowManager;
+import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.FrameLayout;
+import android.widget.LinearLayout;
+import android.widget.ListView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.concurrent.locks.LockSupport;
 
 public class MainActivity extends Activity {
     GameView gv;
+    FrameLayout root;
+    LinearLayout menu;
+    TextView info;
+    ListView lv;
+    ArrayAdapter<String> ad;
+    final List<String> names = new ArrayList<>();
+    final List<Uri> uris = new ArrayList<>();
+
     Thread th;
     volatile boolean run;
     AudioTrack at;
-    boolean ready, loaded;
+    boolean ready, loaded, inGame;
     String sav;
 
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        root = new FrameLayout(this);
         gv = new GameView(this);
-        gv.onRom = this::pick;
-        setContentView(gv);
+        gv.onRom = this::showMenu;
+        gv.setVisibility(View.GONE);
+        buildMenu();
+        root.addView(gv);
+        root.addView(menu);
+        setContentView(root);
         ready = Native.init(getApplicationInfo().nativeLibraryDir + "/libmgba_core.so",
                 getFilesDir().getAbsolutePath());
-        if (!ready) { toast("Core mGBA não encontrado"); return; }
-        String last = getPreferences(0).getString("rom", null);
-        if (last == null) pick();
-        else {
-            try { open(Uri.parse(last)); } catch (Exception e) { pick(); }
-        }
+        if (!ready) toast("Core mGBA não encontrado");
+        String d = getPreferences(0).getString("dir", null);
+        if (d != null) scan(Uri.parse(d));
+    }
+
+    int dp(int v) { return (int) (v * getResources().getDisplayMetrics().density); }
+
+    void buildMenu() {
+        menu = new LinearLayout(this);
+        menu.setOrientation(LinearLayout.VERTICAL);
+        menu.setBackgroundColor(Color.BLACK);
+        int pd = dp(16);
+        menu.setPadding(pd, pd * 2, pd, pd);
+
+        TextView t = new TextView(this);
+        t.setText("GBA-MAX");
+        t.setTextSize(28);
+        t.setTextColor(Color.WHITE);
+        t.setGravity(Gravity.CENTER);
+
+        Button bt = new Button(this);
+        bt.setText("Selecionar pasta de ROMs");
+        bt.setOnClickListener(v -> pickDir());
+
+        info = new TextView(this);
+        info.setTextColor(0xFFAAAAAA);
+        info.setText("Escolha a pasta onde estão seus jogos .zip");
+        info.setPadding(0, pd / 2, 0, pd / 2);
+
+        lv = new ListView(this);
+        ad = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, names);
+        lv.setAdapter(ad);
+        lv.setOnItemClickListener((p, v, i, id) -> play(uris.get(i)));
+
+        menu.addView(t);
+        menu.addView(bt);
+        menu.addView(info);
+        menu.addView(lv, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
     }
 
     @Override
@@ -52,11 +112,11 @@ public class MainActivity extends Activity {
 
     void toast(String s) { Toast.makeText(this, s, Toast.LENGTH_LONG).show(); }
 
-    void pick() {
-        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-        i.addCategory(Intent.CATEGORY_OPENABLE);
-        i.setType("*/*");
-        i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+    void pickDir() {
+        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+        i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
+                | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
+                | Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
         startActivityForResult(i, 1);
     }
 
@@ -66,10 +126,49 @@ public class MainActivity extends Activity {
         Uri u = d.getData();
         try { getContentResolver().takePersistableUriPermission(u, Intent.FLAG_GRANT_READ_URI_PERMISSION); }
         catch (Exception e) { }
+        getPreferences(0).edit().putString("dir", u.toString()).apply();
+        scan(u);
+    }
+
+    // lista só os .zip da pasta (e subpastas, até 3 níveis)
+    void scan(Uri tree) {
+        TreeMap<String, Uri> m = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
         try {
-            open(u);
-            getPreferences(0).edit().putString("rom", u.toString()).apply();
-        } catch (Exception e) { toast("Erro ao abrir a ROM"); }
+            walk(tree, DocumentsContract.getTreeDocumentId(tree), m, 0);
+        } catch (Exception e) {
+            names.clear(); uris.clear();
+            ad.notifyDataSetChanged();
+            info.setText("Não consegui ler a pasta. Selecione de novo.");
+            return;
+        }
+        names.clear(); uris.clear();
+        for (Map.Entry<String, Uri> e : m.entrySet()) { names.add(e.getKey()); uris.add(e.getValue()); }
+        ad.notifyDataSetChanged();
+        info.setText(names.isEmpty() ? "Nenhum jogo .zip encontrado nesta pasta"
+                : names.size() + " jogos (.zip) — toque para jogar");
+    }
+
+    void walk(Uri tree, String id, Map<String, Uri> m, int depth) {
+        Uri ch = DocumentsContract.buildChildDocumentsUriUsingTree(tree, id);
+        try (Cursor c = getContentResolver().query(ch, new String[]{
+                DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                DocumentsContract.Document.COLUMN_MIME_TYPE}, null, null, null)) {
+            if (c == null) return;
+            while (c.moveToNext()) {
+                String did = c.getString(0), n = c.getString(1), mt = c.getString(2);
+                if (DocumentsContract.Document.MIME_TYPE_DIR.equals(mt)) {
+                    if (depth < 3) walk(tree, did, m, depth + 1);
+                } else if (n != null && n.toLowerCase().endsWith(".zip")) {
+                    m.put(n.substring(0, n.length() - 4), DocumentsContract.buildDocumentUriUsingTree(tree, did));
+                }
+            }
+        }
+    }
+
+    void play(Uri u) {
+        if (!ready) { toast("Core mGBA não encontrado"); return; }
+        try { open(u); } catch (Exception e) { toast("Erro ao abrir: " + e.getMessage()); }
     }
 
     void open(Uri u) throws Exception {
@@ -83,10 +182,27 @@ public class MainActivity extends Activity {
         in.close();
         byte[] rom = RomReader.extract(o.toByteArray());
         sav = getFilesDir() + "/" + Integer.toHexString(Arrays.hashCode(rom)) + ".sav";
-        if (!Native.load(rom, "game.gba")) { toast("ROM inválida (use .gba)"); return; }
+        if (!Native.load(rom, "game.gba")) { toast("ROM inválida"); return; }
         Native.loadSram(sav);
         loaded = true;
+        inGame = true;
+        menu.setVisibility(View.GONE);
+        gv.setVisibility(View.VISIBLE);
         start();
+    }
+
+    void showMenu() {
+        stop();
+        save();
+        inGame = false;
+        gv.touch = 0; gv.ta = false; gv.tb = false;
+        gv.setVisibility(View.GONE);
+        menu.setVisibility(View.VISIBLE);
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (inGame) showMenu(); else super.onBackPressed();
     }
 
     void save() { if (loaded && sav != null) Native.saveSram(sav); }
@@ -143,6 +259,6 @@ public class MainActivity extends Activity {
     }
 
     @Override protected void onPause() { super.onPause(); stop(); save(); }
-    @Override protected void onResume() { super.onResume(); start(); }
+    @Override protected void onResume() { super.onResume(); if (inGame) start(); }
     @Override protected void onDestroy() { super.onDestroy(); stop(); save(); }
 }

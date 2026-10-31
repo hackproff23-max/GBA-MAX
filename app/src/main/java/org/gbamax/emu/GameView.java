@@ -13,7 +13,7 @@ public class GameView extends View {
     // bits no padrão libretro
     static final int B = 1, SEL = 4, ST = 8, UP = 16, DN = 32, LF = 64, RT = 128, A = 256, L = 1024, R = 2048;
     static final int TA = -1, TB = -2, FF = -3, ROM = -4;
-    static final String[] LAB = {"L", "L+A", "L+B", "R+B", "R+A", "R", "A", "B", "A+B", "TA", "TB", "SEL", "START", "FF", "ROM"};
+    static final String[] LAB = {"L", "L+A", "L+B", "R+B", "R+A", "R", "A", "B", "A+B", "TA", "TB", "SEL", "START", "FF", "MENU"};
     static final int[] COD = {L, L | A, L | B, R | B, R | A, R, A, B, A | B, TA, TB, SEL, ST, FF, ROM};
     // 8 direções: direita, baixo-dir, baixo, baixo-esq, esquerda, cima-esq, cima, cima-dir
     static final int[] DIRS = {RT, DN | RT, DN, DN | LF, LF, UP | LF, UP, UP | RT};
