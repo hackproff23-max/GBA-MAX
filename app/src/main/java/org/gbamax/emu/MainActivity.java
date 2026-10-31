@@ -9,7 +9,11 @@ import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.database.Cursor;
 import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.RectF;
+import android.graphics.SweepGradient;
 import android.graphics.Typeface;
 import android.media.AudioAttributes;
 import android.media.AudioFormat;
@@ -20,7 +24,9 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.provider.DocumentsContract;
 import android.provider.Settings;
+import android.view.Gravity;
 import android.view.View;
+import android.view.WindowInsets;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.FrameLayout;
@@ -572,8 +578,69 @@ public class MainActivity extends Activity {
             long m = f.isFile() ? f.lastModified() : 0;
             if (m < old) { old = m; best = i; }
         }
-        if (saveStateImg(100 + best))
-            runOnUiThread(() -> Toast.makeText(this, "Salvamento automático", Toast.LENGTH_SHORT).show());
+        showSaving();
+        saveStateImg(100 + best);
+        hideSaving();
+    }
+
+    // ================= indicador do salvamento automático (círculo girando) =================
+    SaveSpinner spin;
+
+    static class SaveSpinner extends View {
+        final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+        final RectF r = new RectF();
+
+        SaveSpinner(Context c) {
+            super(c);
+            p.setStyle(Paint.Style.STROKE);
+            p.setStrokeCap(Paint.Cap.ROUND);
+        }
+
+        @Override protected void onSizeChanged(int w, int h, int ow, int oh) {
+            float s = w * 0.14f;
+            p.setStrokeWidth(s);
+            r.set(s, s, w - s, h - s);
+            p.setShader(new SweepGradient(w / 2f, h / 2f,
+                    new int[]{0x004FC3F7, 0xFF4FC3F7, 0xFFFFFFFF}, new float[]{0f, 0.7f, 1f}));
+        }
+
+        @Override protected void onDraw(Canvas c) {
+            float ang = (System.nanoTime() / 1_000_000L % 800) / 800f * 360f;
+            c.save();
+            c.rotate(ang, getWidth() / 2f, getHeight() / 2f);
+            c.drawArc(r, 0, 360, false, p);
+            c.restore();
+            postInvalidateOnAnimation();
+        }
+    }
+
+    void showSaving() {
+        runOnUiThread(() -> {
+            try {
+                if (spin != null || root == null) return;
+                float d = getResources().getDisplayMetrics().density;
+                int top = (int) (14 * d);
+                if (Build.VERSION.SDK_INT >= 28) {
+                    WindowInsets wi = root.getRootWindowInsets();
+                    if (wi != null && wi.getDisplayCutout() != null) top += wi.getDisplayCutout().getSafeInsetTop();
+                }
+                spin = new SaveSpinner(this);
+                FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams((int) (26 * d), (int) (26 * d),
+                        Gravity.TOP | Gravity.CENTER_HORIZONTAL);
+                lp.topMargin = top;
+                root.addView(spin, lp);
+            } catch (Throwable e) { }
+        });
+    }
+
+    void hideSaving() {
+        runOnUiThread(() -> {
+            if (root == null) return;
+            root.postDelayed(() -> {
+                try { if (spin != null && spin.getParent() == root) root.removeView(spin); } catch (Throwable e) { }
+                spin = null;
+            }, 900);
+        });
     }
 
     void afterLoadState() {
