@@ -144,7 +144,7 @@ public class MenuView extends FrameLayout {
             @Override public void onScroll(AbsListView v, int first, int vis, int total) {
                 int idx = 0;
                 if (total > vis) idx = Math.round(first * 4f / Math.max(1, total - vis));
-                dots.set(Math.max(0, Math.min(4, idx)));
+                if (dots != null) dots.set(Math.max(0, Math.min(4, idx)));
             }
         });
         addView(grid, new LayoutParams(-1, -1));
