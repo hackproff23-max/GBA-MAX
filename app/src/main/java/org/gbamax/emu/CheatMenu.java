@@ -244,6 +244,7 @@ class CheatMenu {
         btns.addView(colar, cl);
         l.addView(btns, g.lp());
         TextView baixar = g.mv.btn("Baixar cheats de todos os jogos (PT-BR)", 0xFF7E57C2, Color.WHITE); l.addView(baixar, g.lp()); baixar.setOnClickListener(v -> new CheatBaixar(g).iniciar(() -> { lista = ler(c, jogo); preencher(); mudou = true; }));
+        TextView txt = g.mv.btn("Importar arquivo TXT", 0xFF00897B, Color.WHITE); l.addView(txt, g.lp()); txt.setOnClickListener(v -> { g.a.cheatPend = this; g.a.pickFiles(9, false, "text/plain", "application/octet-stream"); });
 
         rows = new LinearLayout(c);
         rows.setOrientation(LinearLayout.VERTICAL);
@@ -252,7 +253,7 @@ class CheatMenu {
 
         add.setOnClickListener(v -> editar(null));
         colar.setOnClickListener(v -> colar());
-        g.pageDialog("Cheats", l, 8, () -> {
+        g.pageDialog("Cheats", l, 9, () -> {
             if (noJogo && mudou) g.a.aplicarCheats(jogo);
         }).show();
     }

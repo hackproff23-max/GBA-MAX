@@ -151,6 +151,7 @@ public class MainActivity extends Activity {
 
     // ================= personalizar: botões, fundo e abertura =================
     String pendingKey;
+    CheatMenu cheatPend;
 
     void pickFiles(int req, boolean multi, String... mimes) {
         Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
@@ -578,7 +579,7 @@ public class MainActivity extends Activity {
     protected void onActivityResult(int req, int res, Intent d) {
         if (res != RESULT_OK || d == null) return;
         if (req == 3) { importResult(d); return; }
-        if (req >= 4 && req <= 8) { personalizarResult(req, d); return; }
+        if (req == 9) { CheatTxt.resultado(this, d); return; } if (req >= 4 && req <= 8) { personalizarResult(req, d); return; }
         if (d.getData() == null) return;
         Uri u = d.getData();
         try { getContentResolver().takePersistableUriPermission(u, Intent.FLAG_GRANT_READ_URI_PERMISSION); }
