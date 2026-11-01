@@ -114,7 +114,7 @@ final class CapaCustom {
                 if (fim) {
                     Uri cu = Uri.fromFile(f);
                     g.cover = cu;
-                    a.mv.cache.remove(cu.toString());
+                    a.mv.cache.remove(cu.toString()); a.mv.blur.remove(cu.toString());
                     a.mv.failed.remove(cu.toString());
                     a.mv.refreshCovers();
                     a.toast("Capa definida");
