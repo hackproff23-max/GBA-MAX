@@ -29,14 +29,14 @@ import java.util.Locale;
 class GameMenu {
     interface Bool { void set(boolean v); }
 
-    static final int[] FF = {2, 3, 4, 6, 8};
+    static final int[] FF = {2, 3, 5, 8, 16};
     static final String[] BUF = {"Pequeno", "Médio", "Grande"};
 
     final MainActivity a;
     final MenuView mv;
     final Context c;
     final List<Dialog> open = new ArrayList<>();
-    Dialog main, advD;
+    Dialog main, advD, optD;
     boolean coresOpen;
     LinearLayout panel;
     View frame;
@@ -293,14 +293,16 @@ class GameMenu {
         l.addView(row(MenuView.Icons.AUDIO, 0xFFFFA000, "Áudio", "Volume, mudo e buffer", this::audio), lp());
         l.addView(row(MenuView.Icons.PAD, 0xFF7E57C2, "Controle", "Opacidade, vibração e layout", this::control), lp());
         l.addView(row(MenuView.Icons.ADV, 0xFF3A3C42, "Avançado", "Avanço rápido, quadros e reiniciar", this::advanced), lp());
+        l.addView(row(MenuView.Icons.ADV, 0xFF1E6BE6, "Avanço rápido", VideoSettings.ffSpeed + "x", () -> { optD.dismiss(); ffPick(); }), lp());
         l.addView(toggle("Retomar de onde parou", VideoSettings.resume, on -> {
             VideoSettings.resume = on;
             if (!on) a.clearResume();
             VideoSettings.save(c);
         }), lp());
-        pageDialog("Opções", l, 5, null).show();
+        optD = pageDialog("Opções", l, 6, null); optD.show();
     }
 
+    void ffPick() { int cur = 1; for (int i = 0; i < FF.length; i++) if (FF[i] == VideoSettings.ffSpeed) cur = i; String[] it = new String[FF.length]; for (int i = 0; i < FF.length; i++) it[i] = FF[i] + "x"; vmBack(this::options).choice("Avanço rápido", it, cur, i -> { VideoSettings.ffSpeed = FF[i]; VideoSettings.save(c); options(); }); }
     void audio() {
         LinearLayout l = new LinearLayout(c);
         l.setOrientation(LinearLayout.VERTICAL);
