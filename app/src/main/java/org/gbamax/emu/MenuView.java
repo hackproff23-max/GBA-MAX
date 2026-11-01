@@ -171,7 +171,7 @@ public class MenuView extends FrameLayout {
         top = new LinearLayout(c);
         top.setOrientation(LinearLayout.HORIZONTAL);
         top.setGravity(Gravity.CENTER_VERTICAL);
-        top.setPadding(dp(14), 0, dp(16), 0);
+        top.setPadding(dp(6), 0, dp(9), 0);
         top.setBackground(glass(dp(23)));
         top.setElevation(dp(8));
 
@@ -201,7 +201,7 @@ public class MenuView extends FrameLayout {
         LinearLayout.LayoutParams ctl = new LinearLayout.LayoutParams(-2, -2);
         ctl.leftMargin = dp(4);
 
-        top.addView(new IconView(c, Icons.CAL, Tema.get(Tema.TEXTO)), new LinearLayout.LayoutParams(dp(18), dp(18)));
+        top.addView(new IconView(c, Icons.CAL, Tema.get(Tema.TEXTO)), new LinearLayout.LayoutParams(dp(26), dp(26)));
         TextClock td = new Rel(c) {
             @Override public void setText(CharSequence t, TextView.BufferType b) {
                 super.setText(t == null ? null : t.toString().toUpperCase(java.util.Locale.ROOT), b);
@@ -209,43 +209,43 @@ public class MenuView extends FrameLayout {
         };
         td.setFormat12Hour("dd/MMM/yyyy");
         td.setFormat24Hour("dd/MMM/yyyy");
-        td.setTextSize(14);
+        td.setTextSize(19);
         td.setTypeface(Typeface.DEFAULT_BOLD);
         td.setTextColor(Tema.get(Tema.TEXTO));
         td.setSingleLine(true);
         LinearLayout.LayoutParams tdl = new LinearLayout.LayoutParams(-2, -2);
-        tdl.leftMargin = dp(5);
+        tdl.leftMargin = dp(6);
         top.addView(td, tdl);
-        LinearLayout.LayoutParams ckl = new LinearLayout.LayoutParams(dp(18), dp(18));
-        ckl.leftMargin = dp(12);
+        LinearLayout.LayoutParams ckl = new LinearLayout.LayoutParams(dp(26), dp(26));
+        ckl.leftMargin = dp(4);
         top.addView(new IconView(c, Icons.CLOCK, Tema.get(Tema.TEXTO)), ckl);
         TextClock tc = new Rel(c);
         tc.setFormat12Hour("HH:mm");
         tc.setFormat24Hour("HH:mm");
-        tc.setTextSize(14);
+        tc.setTextSize(19);
         tc.setTypeface(Typeface.DEFAULT_BOLD);
         tc.setTextColor(Tema.get(Tema.TEXTO));
         tc.setSingleLine(true);
         LinearLayout.LayoutParams tcl = new LinearLayout.LayoutParams(-2, -2);
-        tcl.leftMargin = dp(5);
+        tcl.leftMargin = dp(6);
         top.addView(tc, tcl);
         top.addView(new View(c), new LinearLayout.LayoutParams(0, 1, 1f));
         final Recarregar rec = new Recarregar(c);
         rec.setOnClickListener(v -> { rec.girar(); h.refresh(); toast("Lista atualizada"); });
-        top.addView(rec, new LinearLayout.LayoutParams(dp(34), dp(34)));
+        top.addView(rec, new LinearLayout.LayoutParams(dp(38), dp(38)));
         top.addView(new View(c), new LinearLayout.LayoutParams(0, 1, 1f));
 
         batTxt = new Txt(c);
         batTxt.setTextColor(Tema.get(Tema.TEXTO));
-        batTxt.setTextSize(12);
+        batTxt.setTextSize(20);
         batTxt.setTypeface(Typeface.DEFAULT_BOLD);
         batTxt.setText("100%");
         LinearLayout.LayoutParams btl = new LinearLayout.LayoutParams(-2, -2);
-        btl.leftMargin = dp(6);
+        btl.leftMargin = dp(3);
         top.addView(batTxt, btl);
         bat = new BatteryView(c);
-        LinearLayout.LayoutParams bl = new LinearLayout.LayoutParams(dp(28), dp(14));
-        bl.leftMargin = dp(5);
+        LinearLayout.LayoutParams bl = new LinearLayout.LayoutParams(dp(50), dp(21));
+        bl.leftMargin = dp(9);
         top.addView(bat, bl);
 
         LayoutParams tl = new LayoutParams(-1, dp(46), Gravity.TOP);
@@ -895,7 +895,7 @@ public class MenuView extends FrameLayout {
         BatteryView(Context c) { super(c); }
         void set(int a, boolean b) { pct = a; chg = b; invalidate(); }
         @Override protected void onDraw(Canvas c) {
-            float w = getWidth(), h = getHeight(), nub = den * 3;
+            final float den = getHeight() / 14f; float w = getWidth(), h = getHeight(), nub = den * 3;
             RectF body = new RectF(den, den, w - nub - den, h - den);
             p.setStyle(Paint.Style.STROKE);
             p.setStrokeWidth(den * 1.5f);
