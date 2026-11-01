@@ -41,7 +41,7 @@ public class GlScreen extends GLSurfaceView implements GLSurfaceView.Renderer {
     volatile boolean reload = true;
     final File shaderRoot;
 
-    int surfW = 1, surfH = 1, vbo;
+    int surfW = 1, surfH = 1, vbo, vbo2;
     final Tex src = new Tex();
     int cProg, cTex, cBr, cCt, cSat, cGm, cLcd, cSrc;
     List<Pass> chain;
@@ -469,15 +469,6 @@ public class GlScreen extends GLSurfaceView implements GLSurfaceView.Renderer {
             vs = x[0];
             fs = x[1];
         } else {
-            StringBuilder b = new StringBuilder();
-            for (String line : s.split("\n", -1)) {
-                String t = line.trim();
-                if (t.startsWith("#version") || t.startsWith("#pragma parameter")
-                        || t.startsWith("#pragma name") || t.startsWith("#pragma format")) b.append('\n');
-                else b.append(line).append('\n');
-            }
-            vs = "#version 100\n#define VERTEX\n#define PARAMETER_UNIFORM\n" + b;
-            fs = "#version 100\n#define FRAGMENT\n#define PARAMETER_UNIFORM\nprecision highp float;\n" + b;
         }
         Pass p = new Pass();
         try {

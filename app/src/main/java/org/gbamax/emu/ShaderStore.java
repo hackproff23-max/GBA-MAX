@@ -69,7 +69,7 @@ final class ShaderStore {
 
     static boolean isShader(String n) {
         n = n.toLowerCase();
-        return n.endsWith(".glsl") || n.endsWith(".slang");
+        return ShaderSources.isShaderFile(n);
     }
 
     // ---------- lista local ----------
@@ -91,7 +91,7 @@ final class ShaderStore {
             }
             String n = f.getName();
             // arquivos .glsl/.slang dentro de pastas "shaders" são só dependências de presets
-            boolean ok = isPreset(n) || (isShader(n) && !"shaders".equalsIgnoreCase(d.getName()));
+            boolean ok = isPreset(n) || (isShader(n) && !"shaders".equalsIgnoreCase(d.getName()) && !ShaderSources.hiddenPair(f));
             if (ok) out.add(f.getAbsolutePath().substring(root.getAbsolutePath().length() + 1));
         }
     }
