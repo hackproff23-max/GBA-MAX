@@ -548,7 +548,7 @@ public class MainActivity extends Activity {
         mv.setVisibility(View.GONE);
         gl.setVisibility(View.VISIBLE);
         gv.setVisibility(View.VISIBLE);
-        if (pS != 0) { File sf = new File(statePath(pS)); if (sf.isFile() && Native.loadState(sf.getAbsolutePath())) { afterLoadState(() toast("Estado carregado"); } } else if (VideoSettings.resume && !skR) {
+        if (pS != 0) { File sf = new File(statePath(pS)); if (sf.isFile() && Native.loadState(sf.getAbsolutePath())) { afterLoadState(); toast("Estado carregado"); } } else if (VideoSettings.resume && !skR) {
             File rf = new File(statePath(RETOMAR));
             if (rf.isFile() && Native.loadState(rf.getAbsolutePath())) {
                 afterLoadState();
