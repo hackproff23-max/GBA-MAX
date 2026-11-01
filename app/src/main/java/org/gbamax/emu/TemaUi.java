@@ -13,6 +13,7 @@ import android.widget.TextView;
 
 /** Janelas para editar as cores do app. */
 final class TemaUi {
+    static boolean pendente;
     static void lista(final MainActivity a) {
         final MenuView mv = a.mv;
         LinearLayout box = Personalizar.caixa(mv, a, "Cores do app");
@@ -39,7 +40,7 @@ final class TemaUi {
             LinearLayout.LayoutParams tl = new LinearLayout.LayoutParams(0, -2, 1f);
             tl.leftMargin = mv.dp(12);
             row.addView(t, tl);
-            row.setOnClickListener(v -> { d.dismiss(); editar(a, k); });
+            row.setOnClickListener(v -> editar(a, k, () -> { row.removeViewAt(0); row.addView(swatch(a, mv, Tema.get(k), 30), 0, new LinearLayout.LayoutParams(mv.dp(30), mv.dp(30))); }));
             LinearLayout.LayoutParams rl = new LinearLayout.LayoutParams(-1, -2);
             rl.bottomMargin = mv.dp(6);
             l.addView(row, rl);
@@ -53,7 +54,8 @@ final class TemaUi {
         LinearLayout.LayoutParams fl = new LinearLayout.LayoutParams(-1, -2);
         fl.topMargin = mv.dp(8);
         box.addView(rest, fl);
-        rest.setOnClickListener(v -> { d.dismiss(); Tema.resetAll(a); a.recreate(); });
+        TextView fim = mv.btn("Concluir", 0xFF2EAD4B, Color.WHITE); LinearLayout.LayoutParams fl2 = new LinearLayout.LayoutParams(-1, -2); fl2.topMargin = mv.dp(8); box.addView(fim, fl2); fim.setOnClickListener(v -> d.dismiss()); d.setOnDismissListener(x -> { if (pendente) { pendente = false; a.recreate(); } });
+        rest.setOnClickListener(v -> { pendente = false; d.dismiss(); Tema.resetAll(a); a.recreate(); });
         d.show();
     }
 
@@ -74,7 +76,7 @@ final class TemaUi {
         return f;
     }
 
-    static void editar(final MainActivity a, final int idx) {
+    static void editar(final MainActivity a, final int idx) { editar(a, idx, null); } static void editar(final MainActivity a, final int idx, final Runnable depois) {
         final MenuView mv = a.mv;
         LinearLayout box = Personalizar.caixa(mv, a, Tema.NOME[idx]);
         final Dialog d = Personalizar.janela(mv, a, box);
@@ -127,7 +129,7 @@ final class TemaUi {
             if (!Tema.legivel(idx, Tema.PADRAO[idx])) { a.toast("Essa cor deixaria o texto ilegível"); return; }
             d.dismiss();
             Tema.reset(a, idx);
-            a.recreate();
+            if (depois == null) a.recreate(); else { pendente = true; depois.run(); }
         });
         ok.setOnClickListener(v -> {
             if (!Tema.legivel(idx, cor[0])) {
@@ -136,7 +138,7 @@ final class TemaUi {
             }
             d.dismiss();
             Tema.set(a, idx, cor[0]);
-            a.recreate();
+            if (depois == null) a.recreate(); else { pendente = true; depois.run(); }
         });
         d.show();
     }
