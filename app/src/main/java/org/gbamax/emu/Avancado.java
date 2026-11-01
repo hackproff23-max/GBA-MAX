@@ -59,7 +59,7 @@ final class Avancado {
             JSONObject cores = new JSONObject();
             for (int i = 0; i < Tema.N; i++) cores.put(Tema.NOME[i], String.format("#%08X", Tema.cur[i]));
             o.put("cores", cores);
-            o.put("grossura_contorno", (double) Tema.grossura);
+            o.put("grossura_contorno", (double) Tema.grossura); o.put("grossura_contorno_texto", (double) Tema.txtGrossura);
             File pd = Personalizar.dir(c);
             o.put("fundo", tipo(pd, "fundo"));
             o.put("abertura", tipo(pd, "abertura"));
@@ -110,7 +110,7 @@ final class Avancado {
                     }
                 }
             }
-            if (o.has("grossura_contorno")) e.putFloat("grossura", (float) o.optDouble("grossura_contorno", 1.5));
+            if (o.has("grossura_contorno")) e.putFloat("grossura", (float) o.optDouble("grossura_contorno", 1.5)); if (o.has("grossura_contorno_texto")) e.putFloat("txtGrossura", (float) o.optDouble("grossura_contorno_texto", 0));
             e.apply();
             JSONObject p = o.optJSONObject("padroes");
             if (p != null) {

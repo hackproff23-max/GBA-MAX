@@ -196,7 +196,7 @@ class VideoMenu {
             @Override public Object getItem(int i) { return shown.get(i); }
             @Override public long getItemId(int i) { return i; }
             @Override public View getView(int i, View v, ViewGroup p) {
-                TextView r = v instanceof TextView ? (TextView) v : new TextView(c);
+                TextView r = v instanceof TextView ? (TextView) v : new Txt(c);
                 int idx = shown.get(i);
                 String s = items.get(idx);
                 boolean on = s.equals(current == null ? "" : current);

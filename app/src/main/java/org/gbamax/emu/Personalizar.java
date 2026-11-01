@@ -399,7 +399,7 @@ final class Personalizar {
         rg.setStroke(mv.dp(1), 0xCCFFFFFF);
         row.setBackground(rg);
         row.addView(new Ico(a, type, cor, mv.den), new LinearLayout.LayoutParams(mv.dp(52), mv.dp(52)));
-        TextView t = new TextView(a);
+        TextView t = new Txt(a);
         t.setText(texto);
         t.setTextColor(Tema.get(Tema.TEXTO));
         t.setTextSize(15);
@@ -407,7 +407,7 @@ final class Personalizar {
         LinearLayout.LayoutParams tl = new LinearLayout.LayoutParams(0, -2, 1f);
         tl.leftMargin = mv.dp(6);
         row.addView(t, tl);
-        TextView ar = new TextView(a);
+        TextView ar = new Txt(a);
         ar.setText("›");
         ar.setTextColor(Tema.get(Tema.TEXTO2));
         ar.setTextSize(22);
@@ -499,7 +499,7 @@ final class Personalizar {
         l.setOrientation(LinearLayout.VERTICAL);
         for (int i = 0; i < itens.length; i++) {
             final int k = i;
-            TextView t = new TextView(a);
+            TextView t = new Txt(a);
             t.setText(itens[i]);
             t.setTextColor(Tema.get(Tema.TEXTO));
             t.setTextSize(15);

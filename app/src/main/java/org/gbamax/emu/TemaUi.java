@@ -32,7 +32,7 @@ final class TemaUi {
             rg.setStroke(mv.dp(1), 0xCCFFFFFF);
             row.setBackground(rg);
             row.addView(swatch(a, mv, Tema.get(i), 30), new LinearLayout.LayoutParams(mv.dp(30), mv.dp(30)));
-            TextView t = new TextView(a);
+            TextView t = new Txt(a);
             t.setText(Tema.NOME[i]);
             t.setTextColor(Tema.get(Tema.TEXTO));
             t.setTextSize(14);
@@ -45,7 +45,8 @@ final class TemaUi {
             rl.bottomMargin = mv.dp(6);
             l.addView(row, rl);
         }
-        final LinearLayout gr = new LinearLayout(a); gr.setOrientation(LinearLayout.HORIZONTAL); gr.setGravity(Gravity.CENTER_VERTICAL); gr.setPadding(mv.dp(12), mv.dp(12), mv.dp(12), mv.dp(12)); GradientDrawable gg = new GradientDrawable(); gg.setColor(Tema.get(Tema.LINHA)); gg.setCornerRadius(mv.dp(16)); gg.setStroke(mv.dp(1), 0xCCFFFFFF); gr.setBackground(gg); final TextView gt = new TextView(a); gt.setText("Contorno das janelas: grossura (" + fmt(Tema.grossura) + ")"); gt.setTextColor(Tema.get(Tema.TEXTO)); gt.setTextSize(14); gt.setTypeface(android.graphics.Typeface.DEFAULT_BOLD); gr.addView(gt, new LinearLayout.LayoutParams(-1, -2)); gr.setOnClickListener(v -> grossura(a, () -> gt.setText("Contorno das janelas: grossura (" + fmt(Tema.grossura) + ")"))); LinearLayout.LayoutParams grl = new LinearLayout.LayoutParams(-1, -2); grl.bottomMargin = mv.dp(6); l.addView(gr, grl);
+        final LinearLayout gr = new LinearLayout(a); gr.setOrientation(LinearLayout.HORIZONTAL); gr.setGravity(Gravity.CENTER_VERTICAL); gr.setPadding(mv.dp(12), mv.dp(12), mv.dp(12), mv.dp(12)); GradientDrawable gg = new GradientDrawable(); gg.setColor(Tema.get(Tema.LINHA)); gg.setCornerRadius(mv.dp(16)); gg.setStroke(mv.dp(1), 0xCCFFFFFF); gr.setBackground(gg); final TextView gt = new Txt(a); gt.setText("Contorno das janelas: grossura (" + fmt(Tema.grossura) + ")"); gt.setTextColor(Tema.get(Tema.TEXTO)); gt.setTextSize(14); gt.setTypeface(android.graphics.Typeface.DEFAULT_BOLD); gr.addView(gt, new LinearLayout.LayoutParams(-1, -2)); gr.setOnClickListener(v -> grossura(a, () -> gt.setText("Contorno das janelas: grossura (" + fmt(Tema.grossura) + ")"))); LinearLayout.LayoutParams grl = new LinearLayout.LayoutParams(-1, -2); grl.bottomMargin = mv.dp(6); l.addView(gr, grl);
+        final LinearLayout tr = new LinearLayout(a); tr.setOrientation(LinearLayout.HORIZONTAL); tr.setGravity(Gravity.CENTER_VERTICAL); tr.setPadding(mv.dp(12), mv.dp(12), mv.dp(12), mv.dp(12)); GradientDrawable tg = new GradientDrawable(); tg.setColor(Tema.get(Tema.LINHA)); tg.setCornerRadius(mv.dp(16)); tg.setStroke(mv.dp(1), 0xCCFFFFFF); tr.setBackground(tg); final TextView tt = new Txt(a); tt.setText("Contorno dos textos: grossura (" + fmt(Tema.txtGrossura) + ")"); tt.setTextColor(Tema.get(Tema.TEXTO)); tt.setTextSize(14); tt.setTypeface(android.graphics.Typeface.DEFAULT_BOLD); tr.addView(tt, new LinearLayout.LayoutParams(-1, -2)); tr.setOnClickListener(v -> grossuraTexto(a, () -> tt.setText("Contorno dos textos: grossura (" + fmt(Tema.txtGrossura) + ")"))); LinearLayout.LayoutParams trl = new LinearLayout.LayoutParams(-1, -2); trl.bottomMargin = mv.dp(6); l.addView(tr, trl);
         ScrollView sv = new ScrollView(a);
         sv.setVerticalScrollBarEnabled(false);
         sv.addView(l);
@@ -141,6 +142,7 @@ final class TemaUi {
 
     interface Val { void on(int v); }
     static String fmt(float x) { return String.format(java.util.Locale.getDefault(), "%.1f dp", x); }
+    static void grossuraTexto(final MainActivity a, final Runnable depois) { final MenuView mv = a.mv; LinearLayout box = Personalizar.caixa(mv, a, "Contorno dos textos"); final Dialog d = Personalizar.janela(mv, a, box); final float[] g = {Tema.txtGrossura}; final TextView val = mv.label(fmt(g[0]), 14, Tema.get(Tema.TEXTO), true); box.addView(val); slider(a, mv, box, "Grossura (0 = sem contorno)", 16, Math.round(g[0] * 2), v -> { g[0] = v / 2f; val.setText(fmt(g[0])); }); LinearLayout row = new LinearLayout(a); row.setOrientation(LinearLayout.HORIZONTAL); TextView cancel = mv.btn("Cancelar", 0xFFE3E7EE, 0xFF1B1F27); TextView ok = mv.btn("Aplicar", 0xFF2EAD4B, Color.WHITE); row.addView(cancel, new LinearLayout.LayoutParams(0, -2, 1f)); LinearLayout.LayoutParams l3 = new LinearLayout.LayoutParams(0, -2, 1f); l3.leftMargin = mv.dp(6); row.addView(ok, l3); LinearLayout.LayoutParams rl = new LinearLayout.LayoutParams(-1, -2); rl.topMargin = mv.dp(12); box.addView(row, rl); cancel.setOnClickListener(v -> d.dismiss()); ok.setOnClickListener(v -> { d.dismiss(); Tema.setTxtGrossura(a, g[0]); pendente = true; depois.run(); }); d.show(); }
     static void grossura(final MainActivity a, final Runnable depois) {
         final MenuView mv = a.mv;
         LinearLayout box = Personalizar.caixa(mv, a, "Grossura do contorno");

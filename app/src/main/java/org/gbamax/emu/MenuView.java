@@ -160,7 +160,7 @@ public class MenuView extends FrameLayout {
         });
         addView(grid, new LayoutParams(-1, -1));
 
-        empty = new TextView(c);
+        empty = new Txt(c);
         empty.setTextColor(0xFF5C6678);
         empty.setTextSize(16);
         empty.setGravity(Gravity.CENTER);
@@ -175,7 +175,7 @@ public class MenuView extends FrameLayout {
         top.setBackground(glass(dp(23)));
         top.setElevation(dp(8));
 
-        TextView net = new TextView(c);
+        TextView net = new Txt(c);
         net.setText("Internet");
         net.setTextColor(Color.WHITE);
         net.setTextSize(12);
@@ -193,7 +193,7 @@ public class MenuView extends FrameLayout {
 
         LinearLayout.LayoutParams cl = new LinearLayout.LayoutParams(dp(22), dp(22));
         cl.leftMargin = dp(10);
-        coins = new TextView(c);
+        coins = new Txt(c);
         coins.setTextColor(Tema.get(Tema.TEXTO));
         coins.setTextSize(13);
         coins.setTypeface(Typeface.DEFAULT_BOLD);
@@ -202,7 +202,7 @@ public class MenuView extends FrameLayout {
         ctl.leftMargin = dp(4);
 
         top.addView(new IconView(c, Icons.CAL, Tema.get(Tema.TEXTO)), new LinearLayout.LayoutParams(dp(18), dp(18)));
-        TextClock td = new TextClock(c) {
+        TextClock td = new Rel(c) {
             @Override public void setText(CharSequence t, TextView.BufferType b) {
                 super.setText(t == null ? null : t.toString().toUpperCase(java.util.Locale.ROOT), b);
             }
@@ -219,7 +219,7 @@ public class MenuView extends FrameLayout {
         LinearLayout.LayoutParams ckl = new LinearLayout.LayoutParams(dp(18), dp(18));
         ckl.leftMargin = dp(12);
         top.addView(new IconView(c, Icons.CLOCK, Tema.get(Tema.TEXTO)), ckl);
-        TextClock tc = new TextClock(c);
+        TextClock tc = new Rel(c);
         tc.setFormat12Hour("HH:mm");
         tc.setFormat24Hour("HH:mm");
         tc.setTextSize(14);
@@ -235,7 +235,7 @@ public class MenuView extends FrameLayout {
         top.addView(rec, new LinearLayout.LayoutParams(dp(34), dp(34)));
         top.addView(new View(c), new LinearLayout.LayoutParams(0, 1, 1f));
 
-        batTxt = new TextView(c);
+        batTxt = new Txt(c);
         batTxt.setTextColor(Tema.get(Tema.TEXTO));
         batTxt.setTextSize(12);
         batTxt.setTypeface(Typeface.DEFAULT_BOLD);
@@ -344,7 +344,7 @@ public class MenuView extends FrameLayout {
         box.setOrientation(LinearLayout.VERTICAL);
         box.setPadding(dp(16), dp(16), dp(16), dp(10));
         box.setBackground(glass(dp(26)));
-        TextView title = new TextView(c);
+        TextView title = new Txt(c);
         title.setText("Configurações");
         title.setTextColor(Tema.get(Tema.TEXTO));
         title.setTextSize(18);
@@ -365,7 +365,7 @@ public class MenuView extends FrameLayout {
             rg.setStroke(dp(Tema.grossura), Tema.get(Tema.CONTORNO));
             row.setBackground(rg);
             row.addView(new DockBtn(c, ty[i], bg[i], Tema.glyph(i + 1), false), new LinearLayout.LayoutParams(dp(52), dp(52)));
-            TextView t = new TextView(c);
+            TextView t = new Txt(c);
             t.setText(tx[i]);
             t.setTextColor(Tema.get(Tema.TEXTO));
             t.setTextSize(15);
@@ -373,7 +373,7 @@ public class MenuView extends FrameLayout {
             LinearLayout.LayoutParams tl2 = new LinearLayout.LayoutParams(0, -2, 1f);
             tl2.leftMargin = dp(6);
             row.addView(t, tl2);
-            TextView ar = new TextView(c);
+            TextView ar = new Txt(c);
             ar.setText("›");
             ar.setTextColor(Tema.get(Tema.TEXTO2));
             ar.setTextSize(22);
@@ -409,7 +409,7 @@ public class MenuView extends FrameLayout {
     }
 
     TextView btn(String t, int bgc, int fg) {
-        TextView b = new TextView(getContext());
+        TextView b = new Txt(getContext());
         b.setText(t);
         b.setTextColor(fg);
         b.setTextSize(14);
@@ -436,7 +436,7 @@ public class MenuView extends FrameLayout {
     }
 
     TextView label(String t, float sz, int col, boolean bold) {
-        TextView v = new TextView(getContext());
+        TextView v = new Txt(getContext());
         v.setText(t);
         v.setTextSize(sz);
         v.setTextColor(col);
@@ -655,14 +655,14 @@ public class MenuView extends FrameLayout {
             plate.setBackground(g);
             plate.setElevation(dp(4));
 
-            t1 = new TextView(c);
+            t1 = new Txt(c);
             t1.setTextColor(Tema.get(Tema.TEXTO));
             t1.setTextSize(12);
             t1.setTypeface(Typeface.DEFAULT_BOLD);
             t1.setSingleLine(true);
             t1.setEllipsize(TextUtils.TruncateAt.END);
             t1.setGravity(Gravity.CENTER);
-            t2 = new TextView(c);
+            t2 = new Txt(c);
             t2.setTextColor(Tema.get(Tema.TEXTO2));
             t2.setTextSize(10.5f);
             t2.setSingleLine(true);
@@ -766,7 +766,7 @@ public class MenuView extends FrameLayout {
                     if (t.isEmpty()) t = g.name;
                     TextPaint tp = new TextPaint(Paint.ANTI_ALIAS_FLAG);
                     tp.setColor(Color.WHITE);
-                    tp.setTypeface(Typeface.DEFAULT_BOLD);
+                    tp.setTypeface(Fx.mapear(getContext(), Typeface.DEFAULT_BOLD));
                     tp.setTextSize(r.width() * .14f);
                     tp.setShadowLayer(4, 0, 2, 0x88000000);
                     sl = StaticLayout.Builder.obtain(t, 0, t.length(), tp, Math.max(10, (int) (r.width() - dp(16))))
