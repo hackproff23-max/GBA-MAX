@@ -675,7 +675,7 @@ public class MenuView extends FrameLayout {
             t1.setTextColor(Tema.get(Tema.TEXTO));
             t1.setTextSize(11.5f);
             t1.setTypeface(Typeface.DEFAULT_BOLD);
-            t1.setSingleLine(false); t1.setMinLines(1); t1.setMaxLines(2); t1.setIncludeFontPadding(false);
+            t1.setSingleLine(true); t1.setIncludeFontPadding(false); if (Build.VERSION.SDK_INT >= 26) t1.setAutoSizeTextTypeUniformWithConfiguration(8, 12, 1, android.util.TypedValue.COMPLEX_UNIT_SP);
             t1.setEllipsize(TextUtils.TruncateAt.END);
             t1.setGravity(Gravity.CENTER);
             t2 = new Txt(c);
