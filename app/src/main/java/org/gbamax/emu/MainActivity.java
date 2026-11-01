@@ -272,6 +272,10 @@ public class MainActivity extends Activity {
     }
 
     void mark(String s) { writeText("native.flag", s); }
+    boolean skipResume; int pendingSlot;
+    String stBaseFor(String n) { File d = Pastas.dir(this, Pastas.SAVES); return d == null ? null : new File(d, Pastas.seguro(n)).getAbsolutePath(); }
+    String hashVelho(Uri u) { try (InputStream in = getContentResolver().openInputStream(u)) { ByteArrayOutputStream o = new ByteArrayOutputStream(1 << 22); byte[] t = new byte[65536]; int k; while ((k = in.read(t)) != -1) o.write(t, 0, k); return getFilesDir() + "/" + Integer.toHexString(Arrays.hashCode(RomReader.extract(o.toByteArray()))); } catch (Throwable e) { return null; } }
+    void apagarSaves(MenuView.Game g) { String n = g.name, nome = Pastas.seguro(n); if (loaded && n.equals(gameName)) { try { Native.unload(); } catch (Throwable t) { } loaded = false; } File dd = Pastas.dir(this, Pastas.DATA); if (dd != null) new File(dd, nome + ".sav").delete(); String b = stBaseFor(n); if (b != null) { for (int s = 1; s <= 5; s++) { new File(b + ".st" + s).delete(); new File(b + "-img" + s).delete(); } for (int s = 1; s <= 3; s++) { new File(b + ".auto" + s).delete(); new File(b + "-auto" + s).delete(); } new File(b + ".resume").delete(); new File(b + "-retomar").delete(); } String v = hashVelho(g.uri); if (v != null) { new File(v + ".sav").delete(); for (int s = 1; s <= 5; s++) new File(v + ".st" + s).delete(); } }
     void unmark() { new File(getFilesDir(), "native.flag").delete(); }
 
     void toast(String s) { Toast.makeText(this, s, Toast.LENGTH_LONG).show(); }
@@ -454,10 +458,10 @@ public class MainActivity extends Activity {
     }
 
     void playGame(MenuView.Game g) {
-        if (!initCore()) return;
+        final boolean skR = skipResume; final int pS = pendingSlot; skipResume = false; pendingSlot = 0; if (!initCore()) return;
         getPreferences(0).edit().putString("last", g.name).apply();
         gameName = g.name;
-        try { open(g.uri); } catch (Throwable e) { toast("Erro ao abrir: " + e.getMessage()); }
+        try { open(g.uri, skR, pS); } catch (Throwable e) { toast("Erro ao abrir: " + e.getMessage()); }
     }
 
     /** Define onde ficam o .sav (Data) e os estados (Saves) e traz os arquivos antigos, se houver. */
@@ -516,7 +520,7 @@ public class MainActivity extends Activity {
         } catch (Throwable t) { }
     }
 
-    void open(Uri u) throws Exception {
+    void open(Uri u, boolean skR, int pS) throws Exception {
         stop();
         if (loaded) { save(); Native.unload(); loaded = false; }
         InputStream in = getContentResolver().openInputStream(u);
@@ -544,7 +548,7 @@ public class MainActivity extends Activity {
         mv.setVisibility(View.GONE);
         gl.setVisibility(View.VISIBLE);
         gv.setVisibility(View.VISIBLE);
-        if (VideoSettings.resume) {
+        if (pS != 0) { File sf = new File(statePath(pS)); if (sf.isFile() && Native.loadState(sf.getAbsolutePath())) { afterLoadState(() toast("Estado carregado"); } } else if (VideoSettings.resume && !skR) {
             File rf = new File(statePath(RETOMAR));
             if (rf.isFile() && Native.loadState(rf.getAbsolutePath())) {
                 afterLoadState();

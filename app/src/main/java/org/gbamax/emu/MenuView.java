@@ -148,7 +148,7 @@ public class MenuView extends FrameLayout {
             Game g = games.get(i);
             selected = g.name;
             adapter.notifyDataSetChanged();
-            host.play(g);
+            if (getContext() instanceof MainActivity) new GameMenu((MainActivity) getContext()).gameWindow(g); else host.play(g);
         });
         grid.setOnScrollListener(new AbsListView.OnScrollListener() {
             @Override public void onScrollStateChanged(AbsListView v, int s) { }

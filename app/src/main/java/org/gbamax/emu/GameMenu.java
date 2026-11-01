@@ -303,6 +303,40 @@ class GameMenu {
     }
 
     static String ffl(int v) { return v == 1 ? "1,5x" : v + "x"; }
+    class HoverList extends LinearLayout {
+        View hot;
+        HoverList(Context x) { super(x); setOrientation(VERTICAL); setPadding(dp(6), dp(4), dp(6), dp(4)); }
+        void paint(View v, boolean on) { v.animate().cancel(); v.animate().scaleX(on ? 1.04f : 1f).scaleY(on ? 1.04f : 1f).translationZ(on ? dp(6) : 0).setDuration(140).start(); if (v.getBackground() instanceof GradientDrawable) { GradientDrawable gd = (GradientDrawable) v.getBackground(); gd.setColor(on ? 0xE6CFE3FF : 0x99FFFFFF); gd.setStroke(dp(on ? 2 : 1), on ? 0xFF4D9BFF : 0xCCFFFFFF); } }
+        void setHot(View v) { if (v == hot) return; if (hot != null) paint(hot, false); hot = v; if (v != null) paint(v, true); }
+        @Override public boolean dispatchTouchEvent(android.view.MotionEvent e) { int ac = e.getActionMasked(); if (ac == android.view.MotionEvent.ACTION_DOWN || ac == android.view.MotionEvent.ACTION_MOVE) { View f = null; for (int i = 0; i < getChildCount(); i++) { View ch = getChildAt(i); if (e.getX() >= ch.getLeft() && e.getX() <= ch.getRight() && e.getY() >= ch.getTop() && e.getY() <= ch.getBottom()) f = ch; } setHot(f); } else if (ac == android.view.MotionEvent.ACTION_UP || ac == android.view.MotionEvent.ACTION_CANCEL) setHot(null); return super.dispatchTouchEvent(e); }
+    }
+    void gameWindow(final MenuView.Game g) {
+        LinearLayout l = new HoverList(c);
+        l.addView(row(MenuView.Icons.PAD, 0xFF2EAD4B, "Iniciar jogo", VideoSettings.resume ? "Continua de onde você parou" : "Abre o jogo", () -> { dismissAll(); a.skipResume = false; a.pendingSlot = 0; a.playGame(g); }), lp());
+        l.addView(row(MenuView.Icons.HOME, 0xFF1E6BE6, "Reiniciar jogo", "Começa do início (os saves ficam)", () -> { dismissAll(); a.skipResume = true; a.pendingSlot = 0; a.playGame(g); }), lp());
+        l.addView(row(MenuView.Icons.LIB, 0xFFFFA000, "Estados salvos", "Escolher um estado para abrir", () -> estados(g)), lp());
+        l.addView(row(MenuView.Icons.SAVE, 0xFFE53935, "Apagar save", "Remove o save e os estados do jogo", () -> confirm("Apagar save", "O save e todos os estados salvos (manuais, automáticos e retomar) de " + g.name + " serão apagados. Não dá para desfazer.", () -> { a.apagarSaves(g); toast("Save apagado"); })), lp());
+        pageDialog(g.name, l, 4, null).show();
+    }
+    void estados(final MenuView.Game g) {
+        final String b = a.stBaseFor(g.name);
+        LinearLayout l = new HoverList(c);
+        int n = 0;
+        if (b != null) {
+            a.stBase = b;
+            SimpleDateFormat df = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault());
+            int[] sl = {101, 102, 103, MainActivity.RETOMAR, 1, 2, 3, 4, 5};
+            for (final int slot : sl) {
+                File f = new File(a.statePath(slot));
+                if (!f.isFile()) continue;
+                String t = slot == MainActivity.RETOMAR ? "Retomar (ao sair)" : slot > 100 ? "Automático " + (slot - 100) : "Manual " + slot;
+                l.addView(row(thumb(slot), MenuView.Icons.LIB, slot > 100 ? 0xFFFFA000 : 0xFF1E6BE6, t, df.format(new Date(f.lastModified())), () -> { dismissAll(); a.skipResume = false; a.pendingSlot = slot; a.playGame(g); }), lp());
+                n++;
+            }
+        }
+        if (n == 0) { TextView e = mv.label("Nenhum estado salvo para este jogo.", 14, 0xFF4A5363, false); e.setPadding(dp(4), dp(8), dp(4), dp(8)); l.addView(e); }
+        pageDialog("Estados salvos", l, Math.max(1, Math.min(n, 8)), null).show();
+    }
     void ffPick() { int cur = 1; for (int i = 0; i < FF.length; i++) if (FF[i] == VideoSettings.ffSpeed) cur = i; String[] it = new String[FF.length]; for (int i = 0; i < FF.length; i++) it[i] = ffl(FF[i]); vmBack(this::options).choice("Avanço rápido", it, cur, i -> { VideoSettings.ffSpeed = FF[i]; VideoSettings.save(c); options(); }); }
     void audio() {
         LinearLayout l = new LinearLayout(c);
