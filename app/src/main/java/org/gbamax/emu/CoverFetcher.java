@@ -83,6 +83,7 @@ public class CoverFetcher {
                 if (g.cover != null) continue; // capa colocada por você na pasta tem prioridade
                 File f = new File(dir, safe(g.name) + ".jpg");
                 File old = new File(dir, safe(g.name) + ".png"); // capas baixadas em versões antigas
+                File pb = new File(dir, safe(g.name) + "_pb.jpg"), pbn = new File(dir, safe(g.name) + "_pb.none"); if (pb.length() > 500) { cb.onCover(g, pb); continue; } if (!offline && !(pbn.exists() && System.currentTimeMillis() - pbn.lastModified() < MAX_AGE) && ehPoke(g)) { boolean got = false, mk = true; try { got = pokebat(g.name, pb); } catch (Throwable t) { mk = false; } if (got) { cb.onCover(g, pb); continue; } if (mk) { try { pbn.createNewFile(); pbn.setLastModified(System.currentTimeMillis()); } catch (IOException e) { } } }
                 if (f.length() > 500) { cb.onCover(g, f); continue; }
                 if (old.length() > 500) { cb.onCover(g, old); continue; }
                 if (offline) continue;
@@ -335,12 +336,73 @@ public class CoverFetcher {
     }
 
     static String enc(String s) throws IOException { return URLEncoder.encode(s, "UTF-8").replace("+", "%20"); }
+    static final String PB = "https://pokebat.net/wp-json/wp/v2/";
+    static final Set<String> PB_STOP = new HashSet<>(java.util.Arrays.asList("pokemon", "version", "gba", "rom", "hack", "the", "of", "br", "pt", "ptbr", "english", "translation", "traducao", "portugues", "full", "final", "beta", "demo"));
+    static String norm(String s) { return java.text.Normalizer.normalize(s, java.text.Normalizer.Form.NFD).replaceAll("\\p{M}+", "").toLowerCase(Locale.ROOT); }
+    static List<String> pbTokens(String s) { List<String> r = new ArrayList<>(); for (String w : norm(strip(clean(s))).split("[^a-z0-9]+")) if (!w.isEmpty() && !PB_STOP.contains(w) && !w.matches("v\\d+")) r.add(w); return r; }
+    boolean ehPoke(MenuView.Game g) { if (norm(g.name).contains("pokemon")) return true; String c = headerCode(g.uri); return c != null && (c.startsWith("AXV") || c.startsWith("AXP") || c.startsWith("BPE") || c.startsWith("BPR") || c.startsWith("BPG")); }
+    boolean pokebat(String name, File out) throws Exception {
+        List<String> q = pbTokens(name);
+        if (q.isEmpty()) return false;
+        JSONArray res = null;
+        for (int n = Math.min(3, q.size()); n >= 1; n--) {
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < n; i++) sb.append(i > 0 ? " " : "").append(q.get(i));
+            res = new JSONArray(httpText(PB + "search?subtype=post&per_page=8&_fields=id,title,url&search=" + enc(sb.toString())));
+            if (res.length() > 0) break;
+        }
+        if (res == null || res.length() == 0) return false;
+        int bestId = 0;
+        double bs = 0;
+        for (int i = 0; i < res.length(); i++) {
+            JSONObject o = res.getJSONObject(i);
+            Set<String> t = new HashSet<>(pbTokens(android.text.Html.fromHtml(o.optString("title")).toString()));
+            int common = 0;
+            for (String w : q) if (t.contains(w)) common++;
+            double sc = (double) common / q.size();
+            if (common == 0 || sc < .6 || (q.size() > 1 && common < 2)) continue;
+            if (sc > bs) { bs = sc; bestId = o.optInt("id"); }
+        }
+        if (bestId == 0) return false;
+        JSONObject p = new JSONObject(httpText(PB + "posts/" + bestId + "?_fields=featured_media,link"));
+        String img = null;
+        int fm = p.optInt("featured_media");
+        if (fm > 0) img = new JSONObject(httpText(PB + "media/" + fm + "?_fields=source_url")).optString("source_url", null);
+        if (img == null || img.isEmpty()) {
+            Matcher m = Pattern.compile("property=\"og:image\"\\s+content=\"([^\"]+)\"").matcher(httpText(p.optString("link")));
+            if (m.find()) img = m.group(1);
+        }
+        if (img == null || img.isEmpty()) return false;
+        return saveAspect(httpBytes(img), out);
+    }
+    boolean saveAspect(byte[] d, File out) {
+        try {
+            BitmapFactory.Options o = new BitmapFactory.Options();
+            o.inJustDecodeBounds = true;
+            BitmapFactory.decodeByteArray(d, 0, d.length, o);
+            if (o.outWidth <= 0) return false;
+            int ss = 1;
+            while (Math.max(o.outWidth, o.outHeight) / (ss * 2) >= 1024) ss *= 2;
+            o = new BitmapFactory.Options();
+            o.inSampleSize = ss;
+            Bitmap src = BitmapFactory.decodeByteArray(d, 0, d.length, o);
+            if (src == null) return false;
+            float s = Math.min(1f, 512f / Math.max(src.getWidth(), src.getHeight()));
+            Bitmap dst = Bitmap.createScaledBitmap(src, Math.max(1, Math.round(src.getWidth() * s)), Math.max(1, Math.round(src.getHeight() * s)), true);
+            if (dst != src) src.recycle();
+            File tmp = new File(out.getPath() + ".tmp");
+            boolean ok;
+            try (FileOutputStream fo = new FileOutputStream(tmp)) { ok = dst.compress(Bitmap.CompressFormat.JPEG, 90, fo); }
+            dst.recycle();
+            return ok && tmp.renameTo(out);
+        } catch (Throwable t) { return false; }
+    }
 
     static byte[] httpBytes(String u) throws IOException {
         HttpURLConnection c = (HttpURLConnection) new URL(u).openConnection();
         c.setConnectTimeout(15000);
         c.setReadTimeout(30000);
-        c.setRequestProperty("User-Agent", "GBA-MAX");
+        c.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 13; Mobile) GBA-MAX");
         if (c.getResponseCode() != 200) throw new IOException("HTTP " + c.getResponseCode());
         try (InputStream in = c.getInputStream()) {
             ByteArrayOutputStream o = new ByteArrayOutputStream();

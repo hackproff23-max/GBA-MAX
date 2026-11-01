@@ -810,7 +810,7 @@ public class MenuView extends FrameLayout {
                 sl.draw(c);
                 c.restore();
             }
-            // reflexo de luz no topo
+            if (bm == null) {
             fill.setShader(new LinearGradient(0, r.top, 0, r.top + r.height() * .5f,
                     0x66FFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP));
             c.drawRect(r.left, r.top, r.right, r.top + r.height() * .5f, fill);
@@ -830,6 +830,7 @@ public class MenuView extends FrameLayout {
             line.setStrokeWidth(dp(1));
             line.setColor(0x80FFFFFF);
             c.drawRoundRect(r.left + dp(2), r.top + dp(2), r.right - dp(2), r.bottom - dp(2), rad - dp(2), rad - dp(2), line);
+            }
             fill.setShader(null);
             c.restore();
             // moldura
