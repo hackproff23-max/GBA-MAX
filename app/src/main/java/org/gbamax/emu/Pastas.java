@@ -65,6 +65,21 @@ final class Pastas {
         return n.isEmpty() ? "jogo" : n;
     }
 
+    /** Apaga os estados automáticos e/ou o "retomar" (com as miniaturas) de todos os jogos. Os manuais ficam. */
+    static int apagarSaves(Context c, boolean soRetomar) {
+        File d = dir(c, SAVES);
+        File[] l = d == null ? null : d.listFiles();
+        if (l == null) return 0;
+        int n = 0;
+        for (File f : l) {
+            String s = f.getName();
+            boolean r = s.endsWith(".resume") || s.endsWith("-retomar");
+            boolean a = s.matches(".*(\\.auto[1-3]|-auto[1-3])$");
+            if ((r || (!soRetomar && a)) && f.delete()) n++;
+        }
+        return n;
+    }
+
     static boolean copiar(File de, File para) {
         try (InputStream in = new FileInputStream(de); OutputStream o = new FileOutputStream(para)) {
             byte[] t = new byte[16384];

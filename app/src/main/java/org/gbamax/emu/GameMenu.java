@@ -325,9 +325,46 @@ class GameMenu {
         vmBack(null).slider(l, "Opacidade dos botões", 10, 100, VideoSettings.ctlAlpha, "pct", v -> VideoSettings.ctlAlpha = v);
         l.addView(toggle("Vibração ao tocar", VideoSettings.vibrate, on -> VideoSettings.vibrate = on), lp());
         TextView edit = mv.btn("Editar layout de tela e controle", 0xFF7E57C2, Color.WHITE);
-        edit.setOnClickListener(v -> a.startLayoutEdit());
+        edit.setOnClickListener(v -> { dismissAll(); a.startLayoutEdit(); });
         l.addView(edit, lp());
         pageDialog("Configuração de controle", l, 4, () -> VideoSettings.save(c)).show();
+    }
+
+    // ================= configuração de saves =================
+    static final int[] AUTO_S = {30, 60, 120, 300};
+    static final String[] AUTO_L = {"30 segundos", "1 minuto", "2 minutos", "5 minutos"};
+    Dialog savesD;
+
+    void saves() {
+        int cur = 1;
+        for (int i = 0; i < AUTO_S.length; i++) if (AUTO_S[i] == VideoSettings.autoSecs) cur = i;
+        final int curA = cur;
+        LinearLayout l = new LinearLayout(c);
+        l.setOrientation(LinearLayout.VERTICAL);
+        l.addView(toggle("Salvamento automático", VideoSettings.autoOn, on -> VideoSettings.autoOn = on), lp());
+        l.addView(row(MenuView.Icons.ADV, 0xFFFFA000, "Intervalo do automático", AUTO_L[curA] + " (3 slots em rodízio)", () -> {
+            savesD.dismiss();
+            vmBack(this::saves).choice("Intervalo do automático", AUTO_L, curA, i -> {
+                VideoSettings.autoSecs = AUTO_S[i];
+                VideoSettings.save(c);
+                saves();
+            });
+        }), lp());
+        l.addView(toggle("Retomar de onde parou", VideoSettings.resume, on -> {
+            VideoSettings.resume = on;
+            if (!on) Pastas.apagarSaves(c, true);
+        }), lp());
+        l.addView(row(MenuView.Icons.HOME, 0xFFE53935, "Apagar automáticos e retomar",
+                "De todos os jogos (os manuais ficam)", () ->
+                confirm("Apagar salvamentos", "Os estados automáticos e o ponto de retomar de todos os jogos serão apagados. Os 5 manuais e o save normal do jogo não são tocados.", () -> {
+                    int n = Pastas.apagarSaves(c, false);
+                    toast(n > 0 ? "Apagado" : "Nada para apagar");
+                })), lp());
+        TextView hint = mv.label("Os estados ficam em GBA-MAX/Saves e o save normal do jogo (.sav) em GBA-MAX/Data.", 11.5f, 0xFF6B7587, false);
+        hint.setPadding(dp(4), dp(4), dp(4), 0);
+        l.addView(hint);
+        savesD = pageDialog("Configuração de saves", l, 5, () -> VideoSettings.save(c));
+        savesD.show();
     }
 
     void advanced() {

@@ -377,7 +377,7 @@ public class MenuView extends FrameLayout {
                                 else if (c instanceof MainActivity) Personalizar.show((MainActivity) c);
                             }).show();
                 } else if (k == 0) new VideoMenu(MenuView.this).show();
-                else toast("Em breve");
+                else abrirConfig(k); // 1 áudio, 2 controle, 3 saves
             });
             LinearLayout.LayoutParams rl = new LinearLayout.LayoutParams(-1, -2);
             rl.bottomMargin = dp(8);
@@ -532,10 +532,22 @@ public class MenuView extends FrameLayout {
         switch (k) {
             case 0: host.pickDir(); break;
             case 1: new VideoMenu(this).show(); break;
+            case 2: abrirConfig(1); break;
+            case 3: abrirConfig(2); break;
             case 4: showCoverChoice(); break;
             case 5: showSettings(); break;
-            default: toast("Em breve");
+            default: break;
         }
+    }
+
+    /** 1 = áudio, 2 = controle, 3 = saves (mesmas páginas do menu do jogo, valendo como padrão). */
+    void abrirConfig(int tipo) {
+        Context cx = getContext();
+        if (!(cx instanceof MainActivity)) return;
+        GameMenu g = new GameMenu((MainActivity) cx);
+        if (tipo == 1) g.audio();
+        else if (tipo == 2) g.control();
+        else g.saves();
     }
 
     void load(Uri u) {

@@ -43,6 +43,9 @@ public class VideoSettings {
     public static volatile int ffSpeed = 4;    // velocidade do avanço rápido
     // retomar de onde parou: ao sair do jogo guarda o estado e ao abrir volta nele
     public static volatile boolean resume = true;
+    // salvamento automático: liga/desliga e intervalo em segundos
+    public static volatile boolean autoOn = true;
+    public static volatile int autoSecs = 60;
 
     /** Nome do jogo aberto (null = fora do jogo, usa as configurações padrão). */
     public static volatile String game = null;
@@ -67,6 +70,8 @@ public class VideoSettings {
         vibrate = p.getBoolean("vibrate", false);
         ffSpeed = p.getInt("ffSpeed", 4);
         resume = p.getBoolean("resume", true);
+        autoOn = p.getBoolean("autoOn", true);
+        autoSecs = p.getInt("autoSecs", 60);
     }
 
     public static void save(Context c) {
@@ -80,7 +85,8 @@ public class VideoSettings {
                 .putInt("gamma", gamma).putInt("lcd", lcd)
                 .putInt("volume", volume).putBoolean("mute", mute).putInt("abuf", abuf)
                 .putInt("ctlAlpha", ctlAlpha).putBoolean("vibrate", vibrate)
-                .putInt("ffSpeed", ffSpeed).putBoolean("resume", resume).apply();
+                .putInt("ffSpeed", ffSpeed).putBoolean("resume", resume)
+                .putBoolean("autoOn", autoOn).putInt("autoSecs", autoSecs).apply();
     }
 
     // ================= configuração própria de cada jogo (.json) =================
@@ -126,6 +132,8 @@ public class VideoSettings {
             o.put("vibrate", vibrate);
             o.put("ffSpeed", ffSpeed);
             o.put("resume", resume);
+            o.put("autoOn", autoOn);
+            o.put("autoSecs", autoSecs);
             if (gLayoutP != null) o.put("layout_p", gLayoutP);
             if (gLayoutL != null) o.put("layout_l", gLayoutL);
             try (OutputStream w = new FileOutputStream(f)) {
@@ -161,6 +169,8 @@ public class VideoSettings {
             vibrate = o.optBoolean("vibrate", vibrate);
             ffSpeed = o.optInt("ffSpeed", ffSpeed);
             resume = o.optBoolean("resume", resume);
+            autoOn = o.optBoolean("autoOn", autoOn);
+            autoSecs = o.optInt("autoSecs", autoSecs);
             if (o.has("layout_p")) gLayoutP = o.getString("layout_p");
             if (o.has("layout_l")) gLayoutL = o.getString("layout_l");
         } catch (Exception e) { }

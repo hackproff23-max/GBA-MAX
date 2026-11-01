@@ -853,7 +853,8 @@ public class MainActivity extends Activity {
             long r = T - (System.nanoTime() - t0);
             if (r > 0) LockSupport.parkNanos(r);
             autoNs += System.nanoTime() - t0;
-            if (autoNs >= 60_000_000_000L) { autoNs = 0; autoSave(); } // a cada 1 minuto jogado
+            if (!VideoSettings.autoOn) autoNs = 0;
+            else if (autoNs >= VideoSettings.autoSecs * 1_000_000_000L) { autoNs = 0; autoSave(); } // no intervalo escolhido
         }
     }
 
