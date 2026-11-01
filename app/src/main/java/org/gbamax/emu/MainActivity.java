@@ -589,7 +589,7 @@ public class MainActivity extends Activity {
     }
 
     void escolherPasta() { Pasta.escolher(this, f -> { if (!Pasta.salvar(this, f)) { toast("Não consegui salvar a pasta"); return; } getPreferences(0).edit().remove("dir").apply(); dirUri = null; autoScanned = true; scanFolder(f); toast("Pasta dos jogos: " + f.getName()); }); }
-    void scanFolderAsync(final File dir) { new Thread(() -> { final TreeMap<String, MenuView.Game> m = new TreeMap<>(String.CASE_INSENSITIVE_ORDER); final Map<String, Uri> im = new HashMap<>(); walkFiles(dir, m, im, 0); runOnUiThread(() -> { List<MenuView.Game> l = new ArrayList<>(m.values()); for (MenuView.Game g : l) g.cover = im.get(g.name.toLowerCase()); mv.setGames(l, getPreferences(0).getString("last", null), true); fetchCovers(l); }); }).start(); }
+    void scanFolderAsync(final File dir) { new Thread(() -> { final TreeMap<String, MenuView.Game> m = new TreeMap<>(String.CASE_INSENSITIVE_ORDER); final Map<String, Uri> im = new HashMap<>(); walkFiles(dir, m, im, 0); runOnUiThread(() -> { List<MenuView.Game> l = new ArrayList<>(m.values()); for (MenuView.Game g : l) g.cover = im.get(g.name.toLowerCase()); mv.setGames(l, getPreferences(0).getString("last", null), true); fetchCovers(l); if (l.isEmpty()) toast("Nenhum jogo encontrado em " + dir.getAbsolutePath()); }); }).start(); }
     void scan(Uri tree) {
         TreeMap<String, MenuView.Game> m = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
         Map<String, Uri> im = new HashMap<>();

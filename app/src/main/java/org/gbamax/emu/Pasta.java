@@ -80,6 +80,7 @@ final class Pasta {
         return off >= h.length && (h[0xB2] & 0xFF) == 0x96;
     }
 
+    static boolean binPlausivel(long tam) { return tam < 0 || (tam >= 131072 && tam <= 33554432); }
     static boolean zipTemJogo(Context c, Uri u) {
         try {
             if ("file".equals(u.getScheme())) {
@@ -95,7 +96,7 @@ final class Pasta {
                         if (e.isDirectory()) continue;
                         String n = e.getName().toLowerCase(Locale.ROOT);
                         if (n.endsWith(".gba") || n.endsWith(".agb")) r = true;
-                        else if (n.endsWith(".bin")) { try (InputStream in = z.getInputStream(e)) { r = cabecalhoGba(in); } }
+                        else if (n.endsWith(".bin") && binPlausivel(e.getSize())) r = true;
                     }
                 }
                 cache.put(chave, r);
@@ -107,11 +108,11 @@ final class Pasta {
                     if (e.isDirectory()) continue;
                     String n = e.getName().toLowerCase(Locale.ROOT);
                     if (n.endsWith(".gba") || n.endsWith(".agb")) return true;
-                    if (n.endsWith(".bin") && cabecalhoGba(zi)) return true;
+                    if (n.endsWith(".bin") && binPlausivel(e.getSize())) return true;
                 }
             }
         } catch (Throwable t) { }
-        return false;
+        return true;
     }
 
     // ================= gerenciador de arquivos simples =================
