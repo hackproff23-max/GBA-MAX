@@ -173,7 +173,7 @@ public class MainActivity extends Activity {
             try {
                 if (req == 4) msg = Personalizar.importarBotoes(this, us);
                 else if (req == 7) msg = Personalizar.importarUmBotao(this, us.get(0), key);
-                else if (req == 5) msg = Personalizar.importarFundo(this, us.get(0));
+                else if (req == 5) msg = Personalizar.importarFundo(this, us.get(0)); else if (req == 8) msg = Personalizar.importarAbertura(this, us.get(0));
                 else msg = "Não foi possível importar";
             } catch (Throwable t) {
                 msg = "Não foi possível importar";
@@ -397,7 +397,7 @@ public class MainActivity extends Activity {
     protected void onActivityResult(int req, int res, Intent d) {
         if (res != RESULT_OK || d == null) return;
         if (req == 3) { importResult(d); return; }
-        if (req >= 4 && req <= 7) { personalizarResult(req, d); return; }
+        if (req >= 4 && req <= 8) { personalizarResult(req, d); return; }
         if (d.getData() == null) return;
         Uri u = d.getData();
         try { getContentResolver().takePersistableUriPermission(u, Intent.FLAG_GRANT_READ_URI_PERMISSION); }

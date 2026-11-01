@@ -20,6 +20,7 @@ class Intro extends View {
 
     Movie movie;
     Bitmap logo;
+    Bitmap fundoImg; boolean custom;
     final Paint bm = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
     final RectF r = new RectF();
     long t0;
@@ -30,13 +31,15 @@ class Intro extends View {
         setLayerType(LAYER_TYPE_SOFTWARE, null); // Movie (GIF) só desenha em software
         setClickable(true);
         setOnClickListener(v -> fechar());
-        movie = GifBg.carregar(c);
+        movie = GifBg.carregar(c); try { java.io.File ab = Personalizar.abertura(c); if (ab != null) { if (ab.getName().endsWith(".gif")) { Movie m = lerGif(ab); if (m != null) { movie = m; custom = true; } } else { Bitmap bb = Personalizar.decodeMax(ab, 1800); if (bb != null) { fundoImg = bb; movie = null; } } } } catch (Throwable t) { }
         try {
             int id = c.getResources().getIdentifier("intro_logo", "raw", c.getPackageName());
             if (id != 0) try (InputStream in = c.getResources().openRawResource(id)) { logo = BitmapFactory.decodeStream(in); }
         } catch (Throwable t) { logo = null; }
     }
 
+    static Movie lerGif(java.io.File f) { try (InputStream in = new java.io.FileInputStream(f)) { byte[] b = new byte[(int) f.length()]; int off = 0, k; while (off < b.length && (k = in.read(b, off, b.length - off)) > 0) off += k; return Movie.decodeByteArray(b, 0, off); } catch (Throwable t) { return null; } }
+    static void desenharCobrir(Canvas c, Movie m, long el, float w, float h) { if (m == null || m.width() <= 0 || m.height() <= 0 || w <= 0) return; int dur = m.duration() > 0 ? m.duration() : 1000; m.setTime((int) (el % dur)); float s = Math.max(w / m.width(), h / m.height()); c.save(); c.translate((w - m.width() * s) / 2f, (h - m.height() * s) / 2f); c.scale(s, s); m.draw(c, 0, 0); c.restore(); }
     static float ease(float t) { t = Math.max(0f, Math.min(1f, t)); return 1f - (1f - t) * (1f - t) * (1f - t); }
 
     @Override protected void onDraw(Canvas c) {
@@ -49,7 +52,7 @@ class Intro extends View {
         setAlpha(el > SEGURA ? 1f - (el - SEGURA) / (float) SAIDA : 1f);
 
         c.drawColor(Color.BLACK);
-        GifBg.desenhar(c, movie, el, w, h);
+        if (fundoImg != null) { float s2 = Math.max(w / fundoImg.getWidth(), h / fundoImg.getHeight()); r.set((w - fundoImg.getWidth() * s2) / 2f, (h - fundoImg.getHeight() * s2) / 2f, (w + fundoImg.getWidth() * s2) / 2f, (h + fundoImg.getHeight() * s2) / 2f); c.drawBitmap(fundoImg, null, r, bm); } else if (custom) desenharCobrir(c, movie, el, w, h); else GifBg.desenhar(c, movie, el, w, h);
         c.drawColor(0x30000000);
 
         if (logo != null && el >= LOGO_T) {

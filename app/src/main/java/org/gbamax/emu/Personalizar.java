@@ -260,6 +260,8 @@ final class Personalizar {
     }
 
     // ================= interface (mesmo estilo da janela de Configurações) =================
+    static File abertura(Context c) { File d = dir(c); if (d == null) return null; File g = new File(d, "abertura.gif"); if (g.isFile()) return g; File p = new File(d, "abertura.png"); return p.isFile() ? p : null; }
+    static String importarAbertura(Context c, Uri u) { File d = dir(c); if (d == null) return "Sem acesso à pasta GBA-MAX (permita o acesso aos arquivos)"; try (InputStream in = c.getContentResolver().openInputStream(u)) { byte[] x = lerTudo(in, 64L << 20); boolean gif = x.length > 6 && x[0] == 71 && x[1] == 73 && x[2] == 70 && x[3] == 56; File g = new File(d, "abertura.gif"), p = new File(d, "abertura.png"); if (gif) { if (android.graphics.Movie.decodeByteArray(x, 0, x.length) == null) return "Não consegui ler esse GIF"; try (FileOutputStream o = new FileOutputStream(g)) { o.write(x); } p.delete(); return "Abertura (GIF) definida"; } Bitmap b = decode(x, 1800); if (b == null) return "Não consegui ler essa imagem"; try (FileOutputStream o = new FileOutputStream(p)) { b.compress(Bitmap.CompressFormat.PNG, 100, o); } b.recycle(); g.delete(); return "Abertura definida"; } catch (Throwable t) { return "Não consegui importar a abertura"; } }
     interface Pick { void on(int i); }
 
     static final int IC_IMG = 100, IC_BTN = 101, IC_INFO = 102, IC_TRASH = 103, IC_COR = 104;
@@ -438,6 +440,7 @@ final class Personalizar {
             d.dismiss();
             a.pickFiles(5, false, "image/*");
         }));
+        box.addView(linha(mv, a, IC_IMG, 0xFFFF8F00, "Abertura (imagem ou GIF)", () -> { d.dismiss(); a.pickFiles(8, false, "image/*"); }));
         box.addView(linha(mv, a, IC_COR, 0xFFD81B60, "Cores do app", () -> {
             d.dismiss();
             TemaUi.lista(a);
@@ -473,8 +476,8 @@ final class Personalizar {
     }
 
     static void remover(final MainActivity a) {
-        lista(a, "Remover", new String[]{"Botões personalizados", "Fundo do app"}, w -> {
-            if (w == 0) { apagarBotoes(a); if (a.gv != null) a.gv.loadSkin(a); }
+        lista(a, "Remover", new String[]{"Botões personalizados", "Fundo do app", "Abertura"}, w -> {
+            if (w == 2) { File ab = abertura(a); if (ab != null) ab.delete(); ab = abertura(a); if (ab != null) ab.delete(); } else if (w == 0) { apagarBotoes(a); if (a.gv != null) a.gv.loadSkin(a); }
             else { File f = fundo(a); if (f != null) f.delete(); File g = fundoGif(a); if (g != null) g.delete(); a.aplicarFundo(); }
             a.toast("Removido");
         });
