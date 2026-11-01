@@ -88,15 +88,27 @@ public class GameView extends View {
     final RectF okR = new RectF();
     float pTitleY;
     final Path spath = new Path();
-    // formato dos botões (índice em SHAPES), guardado em SharedPreferences
-    int shp;
+    // formato de cada botão (índice em SHAPES), guardado em SharedPreferences ("btnShapes": 15 números)
+    final int[] shp = new int[15];
     static final String[] SHAPES = {"Círculo", "Quadrado", "Retângulo", "Hexágono", "Octógono", "Pentágono",
             "Losango", "Triângulo", "Estrela", "Coração", "Cruz"};
 
-    static int shapeOf(Context c) {
+    void loadShapes(Context c) {
         try {
-            return Math.max(0, Math.min(SHAPES.length - 1, c.getSharedPreferences("gbamax_video", 0).getInt("btnShape", 0)));
-        } catch (Throwable t) { return 0; }
+            String s = c.getSharedPreferences("gbamax_video", 0).getString("btnShapes", null);
+            if (s == null) return;
+            String[] t = s.split(",");
+            for (int i = 0; i < shp.length && i < t.length; i++)
+                shp[i] = Math.max(0, Math.min(SHAPES.length - 1, Integer.parseInt(t[i].trim())));
+        } catch (Throwable t) { }
+    }
+
+    void saveShapes() {
+        try {
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < shp.length; i++) { if (i > 0) sb.append(','); sb.append(shp[i]); }
+            getContext().getSharedPreferences("gbamax_video", 0).edit().putString("btnShapes", sb.toString()).apply();
+        } catch (Throwable t) { }
     }
 
     final Runnable lpr = new Runnable() {
@@ -116,7 +128,7 @@ public class GameView extends View {
         slop = ViewConfiguration.get(c).getScaledTouchSlop();
         p.setTextAlign(Paint.Align.CENTER);
         for (int i = 0; i < gr.length; i++) gr[i] = new RectF();
-        shp = shapeOf(c);
+        loadShapes(c);
         try { loadSkin(c); } catch (Throwable t) { }
     }
 
@@ -254,9 +266,7 @@ public class GameView extends View {
         if (panel == 4) {
             for (int i = 0; i < gr.length; i++) {
                 if (gr[i].contains(x, y)) {
-                    shp = i;
-                    try { getContext().getSharedPreferences("gbamax_video", 0).edit().putInt("btnShape", i).apply(); }
-                    catch (Throwable t) { }
+                    if (sel >= 0 && sel < 15) { shp[sel] = i; saveShapes(); }
                     return;
                 }
             }
@@ -271,7 +281,11 @@ public class GameView extends View {
             if (hit == 0) { moveAll = true; panel = 0; }
             else if (hit == 1) { panel = 2; layoutPanel(); }
             else if (hit == 2) { panel = 3; layoutPanel(); }
-            else { panel = 4; layoutPanel(); }
+            else if (sel >= 0 && sel < 15) { panel = 4; layoutPanel(); }
+            else {
+                panel = 0;
+                android.widget.Toast.makeText(getContext(), "Toque num botão antes para escolher o formato dele", android.widget.Toast.LENGTH_SHORT).show();
+            }
         } else if (panel == 2) {
             if (hit == 0) scaleAll(0.92f);
             else if (hit == 1) scaleAll(1.08f);
@@ -393,7 +407,7 @@ public class GameView extends View {
         String[] tx = null;
         if (panel == 1) {
             title = "Todos os botões";
-            tx = new String[]{"Mover todos", "Tamanho de todos", "Opacidade de todos", "Formato dos botões"};
+            tx = new String[]{"Mover todos", "Tamanho de todos", "Opacidade de todos", "Formato do botão selecionado"};
         } else if (panel == 2) {
             title = "Tamanho de todos";
             tx = new String[]{"−  Menor", "+  Maior", "OK"};
@@ -401,7 +415,8 @@ public class GameView extends View {
             title = "Opacidade: " + Math.max(10, Math.min(100, VideoSettings.ctlAlpha)) + "%";
             tx = new String[]{"−  Mais transparente", "+  Mais opaco", "OK"};
         } else {
-            title = "Formato: " + SHAPES[shp];
+            int cur = sel >= 0 && sel < 15 ? shp[sel] : 0;
+            title = "Botão " + (sel >= 0 && sel < 15 ? LAB[sel] : "") + ": " + SHAPES[cur];
         }
         p.setStyle(Paint.Style.FILL);
         p.setColor(Color.WHITE);
@@ -410,11 +425,12 @@ public class GameView extends View {
         c.drawText(title, vw / 2f, pTitleY, p);
         p.setFakeBoldText(false);
         if (panel == 4) {
+            int cur = sel >= 0 && sel < 15 ? shp[sel] : 0;
             for (int i = 0; i < gr.length; i++) {
-                drawRow(c, gr[i], null, i == shp);
+                drawRow(c, gr[i], null, i == cur);
                 Path sp = buildShape(gr[i].centerX(), gr[i].centerY(), gr[i].width() * .3f, i);
                 p.setStyle(Paint.Style.FILL);
-                p.setColor(i == shp ? 0xFFFFD54F : 0xCCFFFFFF);
+                p.setColor(i == cur ? 0xFFFFD54F : 0xCCFFFFFF);
                 c.drawPath(sp, p);
             }
             drawRow(c, okR, "OK", false);
@@ -777,7 +793,7 @@ public class GameView extends View {
                 c.drawBitmap(sk, null, sr, bp);
                 continue;
             }
-            Path sp = buildShape(px[i], py[i], pr[i], shp);
+            Path sp = buildShape(px[i], py[i], pr[i], shp[i]);
             p.setStyle(Paint.Style.FILL);
             p.setColor(h ? 0x22FFFFFF : on ? 0x88FFFFFF : 0x33FFFFFF);
             c.drawPath(sp, p);
