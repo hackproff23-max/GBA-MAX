@@ -76,9 +76,28 @@ public class GameView extends View {
     int sel = -1;
     float lx, ly, dx0, dy0;
     boolean moved, lpDone, pop;
-    final RectF[] tbr = {new RectF(), new RectF(), new RectF(), new RectF(), new RectF()};
+    final RectF[] tbr = {new RectF(), new RectF(), new RectF(), new RectF(), new RectF(), new RectF()};
     final RectF[] pb = {new RectF(), new RectF()};
-    static final String[] TBL = {"Menor", "Maior", "Padrão", "Ocultar", "Salvar"};
+    static final String[] TBL = {"Menor", "Maior", "Padrão", "Ocultar", "Todos", "Salvar"};
+
+    // janela "Todos os botões" do editor: 0 fechada, 1 menu, 2 tamanho, 3 opacidade, 4 formato
+    int panel;
+    boolean moveAll;
+    final RectF[] pnl = {new RectF(), new RectF(), new RectF(), new RectF()};
+    final RectF[] gr = new RectF[11];
+    final RectF okR = new RectF();
+    float pTitleY;
+    final Path spath = new Path();
+    // formato dos botões (índice em SHAPES), guardado em SharedPreferences
+    int shp;
+    static final String[] SHAPES = {"Círculo", "Quadrado", "Retângulo", "Hexágono", "Octógono", "Pentágono",
+            "Losango", "Triângulo", "Estrela", "Coração", "Cruz"};
+
+    static int shapeOf(Context c) {
+        try {
+            return Math.max(0, Math.min(SHAPES.length - 1, c.getSharedPreferences("gbamax_video", 0).getInt("btnShape", 0)));
+        } catch (Throwable t) { return 0; }
+    }
 
     final Runnable lpr = new Runnable() {
         @Override public void run() {
@@ -96,6 +115,8 @@ public class GameView extends View {
         den = c.getResources().getDisplayMetrics().density;
         slop = ViewConfiguration.get(c).getScaledTouchSlop();
         p.setTextAlign(Paint.Align.CENTER);
+        for (int i = 0; i < gr.length; i++) gr[i] = new RectF();
+        shp = shapeOf(c);
         try { loadSkin(c); } catch (Throwable t) { }
     }
 
@@ -195,9 +216,212 @@ public class GameView extends View {
         float cx = ax[SCREEN] * vw, cy = ay[SCREEN] * vh;
         scr.set(cx - sw / 2, cy - sh / 2, cx + sw / 2, cy + sh / 2);
         if (gl != null) gl.setRect(scr.left, scr.top, scr.right, scr.bottom);
-        float bw = Math.min(vw / 5.4f, 84 * den), bh = 40 * den, gap = 6 * den;
-        float tot = bw * 5 + gap * 4, x0 = (vw - tot) / 2, y0 = 8 * den;
-        for (int i = 0; i < 5; i++) tbr[i].set(x0 + i * (bw + gap), y0, x0 + i * (bw + gap) + bw, y0 + bh);
+        int nt = tbr.length;
+        float bw = Math.min(vw / (nt + 0.6f), 84 * den), bh = 40 * den, gap = 5 * den;
+        float tot = bw * nt + gap * (nt - 1), x0 = (vw - tot) / 2, y0 = 8 * den;
+        for (int i = 0; i < nt; i++) tbr[i].set(x0 + i * (bw + gap), y0, x0 + i * (bw + gap) + bw, y0 + bh);
+        layoutPanel();
+    }
+
+    // ================= janela "Todos os botões" =================
+    void layoutPanel() {
+        float w = Math.min(vw - 32 * den, 240 * den), h = 44 * den, gap = 6 * den;
+        float left = (vw - w) / 2f;
+        if (panel == 4) {
+            float cell = Math.min((vw - 48 * den) / 4f, 64 * den);
+            float gw = cell * 4 + gap * 3;
+            float gh = cell * 3 + gap * 3 + h;
+            float top = Math.max(tbr[0].bottom + 56 * den, (vh - gh) / 2f);
+            float l0 = (vw - gw) / 2f;
+            for (int i = 0; i < gr.length; i++) {
+                int rw = i / 4, cl = i % 4;
+                float x = l0 + cl * (cell + gap), y = top + rw * (cell + gap);
+                gr[i].set(x, y, x + cell, y + cell);
+            }
+            float oy = top + 3 * (cell + gap);
+            okR.set(l0, oy, l0 + gw, oy + h);
+            pTitleY = top - 14 * den;
+            return;
+        }
+        int rows = panel == 1 ? 4 : 3;
+        float total = rows * h + (rows - 1) * gap;
+        float top = Math.max(tbr[0].bottom + 56 * den, (vh - total) / 2f);
+        for (int i = 0; i < rows; i++) pnl[i].set(left, top + i * (h + gap), left + w, top + i * (h + gap) + h);
+        pTitleY = top - 14 * den;
+    }
+
+    void panelTouch(float x, float y) {
+        if (panel == 4) {
+            for (int i = 0; i < gr.length; i++) {
+                if (gr[i].contains(x, y)) {
+                    shp = i;
+                    try { getContext().getSharedPreferences("gbamax_video", 0).edit().putInt("btnShape", i).apply(); }
+                    catch (Throwable t) { }
+                    return;
+                }
+            }
+            panel = 0;
+            return;
+        }
+        int hit = -1;
+        int rows = panel == 1 ? 4 : 3;
+        for (int i = 0; i < rows; i++) if (pnl[i].contains(x, y)) hit = i;
+        if (hit < 0) { panel = 0; return; }
+        if (panel == 1) {
+            if (hit == 0) { moveAll = true; panel = 0; }
+            else if (hit == 1) { panel = 2; layoutPanel(); }
+            else if (hit == 2) { panel = 3; layoutPanel(); }
+            else { panel = 4; layoutPanel(); }
+        } else if (panel == 2) {
+            if (hit == 0) scaleAll(0.92f);
+            else if (hit == 1) scaleAll(1.08f);
+            else panel = 0;
+        } else {
+            if (hit == 0) stepAlpha(-10);
+            else if (hit == 1) stepAlpha(10);
+            else panel = 0;
+        }
+    }
+
+    /** Muda o tamanho de todos os botões e das direções (a tela do jogo não muda). */
+    void scaleAll(float f) {
+        for (int i = 0; i < N; i++) {
+            if (i == SCREEN) continue;
+            boolean dir = i == DPAD || i == DPC;
+            float lo = dir ? .06f : .025f, hi = dir ? .4f : .25f;
+            ar[i] = Math.max(lo, Math.min(hi, ar[i] * f));
+        }
+        recalc();
+    }
+
+    /** Move todos os botões juntos, sem deixar nenhum sair da tela. */
+    void shiftAll(float dx, float dy) {
+        float mnx = 1, mxx = 0, mny = 1, mxy = 0;
+        for (int i = 0; i < N; i++) {
+            if (i == SCREEN) continue;
+            mnx = Math.min(mnx, ax[i]); mxx = Math.max(mxx, ax[i]);
+            mny = Math.min(mny, ay[i]); mxy = Math.max(mxy, ay[i]);
+        }
+        dx = Math.max(-mnx, Math.min(1 - mxx, dx));
+        dy = Math.max(-mny, Math.min(1 - mxy, dy));
+        for (int i = 0; i < N; i++) {
+            if (i == SCREEN) continue;
+            ax[i] += dx; ay[i] += dy;
+        }
+    }
+
+    void stepAlpha(int d) {
+        VideoSettings.ctlAlpha = Math.max(10, Math.min(100, VideoSettings.ctlAlpha + d));
+        VideoSettings.save(getContext());
+    }
+
+    // ================= formatos =================
+    void poly(Path q, float cx, float cy, float r, int n, double rot) {
+        for (int k = 0; k < n; k++) {
+            double a = rot + 2 * Math.PI * k / n;
+            float x = cx + (float) (r * Math.cos(a)), y = cy + (float) (r * Math.sin(a));
+            if (k == 0) q.moveTo(x, y); else q.lineTo(x, y);
+        }
+        q.close();
+    }
+
+    /** Monta o contorno do formato st centrado em (cx, cy) com raio r. */
+    Path buildShape(float cx, float cy, float r, int st) {
+        Path q = spath;
+        q.reset();
+        switch (st) {
+            case 1:
+                q.addRoundRect(cx - r * .9f, cy - r * .9f, cx + r * .9f, cy + r * .9f, r * .3f, r * .3f, Path.Direction.CW);
+                break;
+            case 2:
+                q.addRoundRect(cx - r * 1.3f, cy - r * .8f, cx + r * 1.3f, cy + r * .8f, r * .2f, r * .2f, Path.Direction.CW);
+                break;
+            case 3: poly(q, cx, cy, r, 6, 0); break;
+            case 4: poly(q, cx, cy, r, 8, Math.PI / 8); break;
+            case 5: poly(q, cx, cy, r, 5, -Math.PI / 2); break;
+            case 6: poly(q, cx, cy, r * 1.1f, 4, -Math.PI / 2); break;
+            case 7: poly(q, cx, cy + r * .15f, r * 1.1f, 3, -Math.PI / 2); break;
+            case 8:
+                for (int k = 0; k < 10; k++) {
+                    float rr = k % 2 == 0 ? r * 1.15f : r * .5f;
+                    double a = -Math.PI / 2 + k * Math.PI / 5;
+                    float x = cx + (float) (rr * Math.cos(a)), y = cy + (float) (rr * Math.sin(a));
+                    if (k == 0) q.moveTo(x, y); else q.lineTo(x, y);
+                }
+                q.close();
+                break;
+            case 9:
+                q.moveTo(cx, cy + r * .95f);
+                q.cubicTo(cx + r * 1.35f, cy + r * .15f, cx + r * .95f, cy - r * 1.05f, cx, cy - r * .4f);
+                q.cubicTo(cx - r * .95f, cy - r * 1.05f, cx - r * 1.35f, cy + r * .15f, cx, cy + r * .95f);
+                q.close();
+                break;
+            case 10: {
+                float w = r * .38f, L = r * 1.05f;
+                q.moveTo(cx - w, cy - L); q.lineTo(cx + w, cy - L); q.lineTo(cx + w, cy - w);
+                q.lineTo(cx + L, cy - w); q.lineTo(cx + L, cy + w); q.lineTo(cx + w, cy + w);
+                q.lineTo(cx + w, cy + L); q.lineTo(cx - w, cy + L); q.lineTo(cx - w, cy + w);
+                q.lineTo(cx - L, cy + w); q.lineTo(cx - L, cy - w); q.lineTo(cx - w, cy - w);
+                q.close();
+                break;
+            }
+            default:
+                q.addCircle(cx, cy, r, Path.Direction.CW);
+        }
+        return q;
+    }
+
+    void drawRow(Canvas c, RectF r, String t, boolean on) {
+        p.setStyle(Paint.Style.FILL);
+        p.setColor(0xF0222833);
+        c.drawRoundRect(r, 12 * den, 12 * den, p);
+        p.setStyle(Paint.Style.STROKE);
+        p.setStrokeWidth(2 * den);
+        p.setColor(on ? 0xFFFFD54F : 0x88FFFFFF);
+        c.drawRoundRect(r, 12 * den, 12 * den, p);
+        if (t != null) {
+            p.setStyle(Paint.Style.FILL);
+            p.setColor(Color.WHITE);
+            p.setTextSize(13.5f * den);
+            c.drawText(t, r.centerX(), r.centerY() + 5 * den, p);
+        }
+    }
+
+    void drawPanel(Canvas c) {
+        c.drawColor(0x66000000);
+        String title;
+        String[] tx = null;
+        if (panel == 1) {
+            title = "Todos os botões";
+            tx = new String[]{"Mover todos", "Tamanho de todos", "Opacidade de todos", "Formato dos botões"};
+        } else if (panel == 2) {
+            title = "Tamanho de todos";
+            tx = new String[]{"−  Menor", "+  Maior", "OK"};
+        } else if (panel == 3) {
+            title = "Opacidade: " + Math.max(10, Math.min(100, VideoSettings.ctlAlpha)) + "%";
+            tx = new String[]{"−  Mais transparente", "+  Mais opaco", "OK"};
+        } else {
+            title = "Formato: " + SHAPES[shp];
+        }
+        p.setStyle(Paint.Style.FILL);
+        p.setColor(Color.WHITE);
+        p.setTextSize(16 * den);
+        p.setFakeBoldText(true);
+        c.drawText(title, vw / 2f, pTitleY, p);
+        p.setFakeBoldText(false);
+        if (panel == 4) {
+            for (int i = 0; i < gr.length; i++) {
+                drawRow(c, gr[i], null, i == shp);
+                Path sp = buildShape(gr[i].centerX(), gr[i].centerY(), gr[i].width() * .3f, i);
+                p.setStyle(Paint.Style.FILL);
+                p.setColor(i == shp ? 0xFFFFD54F : 0xCCFFFFFF);
+                c.drawPath(sp, p);
+            }
+            drawRow(c, okR, "OK", false);
+            return;
+        }
+        int rows = panel == 1 ? 4 : 3;
+        for (int i = 0; i < rows; i++) drawRow(c, pnl[i], tx[i], false);
     }
 
     @Override
@@ -213,6 +437,8 @@ public class GameView extends View {
         onEditDone = done;
         sel = -1;
         pop = false;
+        panel = 0;
+        moveAll = false;
         removeCallbacks(lpr);
         touch = 0; ta = false; tb = false; pressed = 0; knob = false; crossM = 0;
         invalidate();
@@ -221,6 +447,8 @@ public class GameView extends View {
     public void cancelEdit() {
         editing = false;
         pop = false;
+        panel = 0;
+        moveAll = false;
         removeCallbacks(lpr);
         reloadLayout();
         invalidate();
@@ -302,6 +530,12 @@ public class GameView extends View {
                 removeCallbacks(lpr);
                 lpDone = false;
                 moved = false;
+                if (panel != 0) {
+                    lpDone = true; // o resto do gesto não move nada
+                    panelTouch(x, y);
+                    invalidate();
+                    return true;
+                }
                 if (pop) {
                     pop = false;
                     if (pb[0].contains(x, y)) toggleFullscreen();
@@ -309,7 +543,8 @@ public class GameView extends View {
                     invalidate();
                     return true;
                 }
-                for (int i = 0; i < 5; i++) if (tbr[i].contains(x, y)) { toolbar(i); return true; }
+                for (int i = 0; i < tbr.length; i++) if (tbr[i].contains(x, y)) { toolbar(i); return true; }
+                if (moveAll) { sel = -1; lx = x; ly = y; dx0 = x; dy0 = y; break; }
                 sel = pick(x, y);
                 lx = x; ly = y; dx0 = x; dy0 = y;
                 if (sel < 0 || sel == SCREEN) postDelayed(lpr, ViewConfiguration.getLongPressTimeout());
@@ -320,6 +555,12 @@ public class GameView extends View {
                     if (Math.hypot(x - dx0, y - dy0) < slop) break;
                     moved = true;
                     removeCallbacks(lpr);
+                }
+                if (moveAll) {
+                    shiftAll((x - lx) / vw, (y - ly) / vh);
+                    lx = x; ly = y;
+                    recalc();
+                    break;
                 }
                 if (sel >= 0) {
                     ax[sel] = Math.max(0f, Math.min(1f, ax[sel] + (x - lx) / vw));
@@ -338,11 +579,19 @@ public class GameView extends View {
     }
 
     void toolbar(int i) {
-        if (i == 4) {
+        if (i == 5) {
             saveLayout();
             editing = false;
             pop = false;
+            panel = 0;
+            moveAll = false;
             if (onEditDone != null) onEditDone.run();
+            return;
+        }
+        if (i == 4) {
+            if (moveAll) moveAll = false;
+            else { pop = false; panel = 1; layoutPanel(); }
+            invalidate();
             return;
         }
         if (i == 3) {
@@ -411,18 +660,20 @@ public class GameView extends View {
         p.setTextSize(13 * den);
         p.setStyle(Paint.Style.FILL);
         p.setColor(0xEEFFFFFF);
-        String hint = sel < 0 ? "Toque e arraste · Segure a tela: mais opções"
+        String hint = moveAll ? "Arraste para mover todos os botões · toque em Parar"
+                : sel < 0 ? "Toque e arraste · Segure a tela ou use Todos"
                 : sel != SCREEN && isHid(sel) ? "Oculto (aparece só aqui) · toque em Mostrar"
                 : "Arraste ou use Menor/Maior";
         c.drawText(hint, vw / 2f, tbr[0].bottom + 22 * den, p);
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < tbr.length; i++) {
             p.setStyle(Paint.Style.FILL);
-            p.setColor(i == 4 ? 0xFF2EAD4B : 0xFF1E6BE6);
+            p.setColor(i == 5 ? 0xFF2EAD4B : i == 4 ? (moveAll ? 0xFFFFA000 : 0xFF7E57C2) : 0xFF1E6BE6);
             c.drawRoundRect(tbr[i], 12 * den, 12 * den, p);
             p.setColor(Color.WHITE);
-            p.setTextSize(12.5f * den);
+            p.setTextSize(11.5f * den);
             String lb = TBL[i];
             if (i == 3 && sel >= 0 && sel != SCREEN && isHid(sel)) lb = "Mostrar";
+            if (i == 4 && moveAll) lb = "Parar";
             c.drawText(lb, tbr[i].centerX(), tbr[i].centerY() + 5 * den, p);
         }
         if (pop) {
@@ -485,7 +736,8 @@ public class GameView extends View {
     protected void onDraw(Canvas c) {
         if (editing) drawEdit(c);
         boolean ed = editing;
-        int al = ed ? 255 : Math.max(10, Math.min(100, VideoSettings.ctlAlpha)) * 255 / 100;
+        // no editor a opacidade aparece com piso de 35% para os botões continuarem visíveis
+        int al = Math.max(ed ? 35 : 10, Math.min(100, VideoSettings.ctlAlpha)) * 255 / 100;
         boolean lay = al < 255;
         if (lay) c.saveLayerAlpha(0, 0, getWidth(), getHeight(), al);
         p.setStrokeWidth(3);
@@ -525,12 +777,13 @@ public class GameView extends View {
                 c.drawBitmap(sk, null, sr, bp);
                 continue;
             }
+            Path sp = buildShape(px[i], py[i], pr[i], shp);
             p.setStyle(Paint.Style.FILL);
             p.setColor(h ? 0x22FFFFFF : on ? 0x88FFFFFF : 0x33FFFFFF);
-            c.drawCircle(px[i], py[i], pr[i], p);
+            c.drawPath(sp, p);
             p.setStyle(Paint.Style.STROKE);
             p.setColor(h ? 0x44FFFFFF : 0x88FFFFFF);
-            c.drawCircle(px[i], py[i], pr[i], p);
+            c.drawPath(sp, p);
             float ts = pr[i] * 1.1f / Math.max(1f, LAB[i].length() * 0.6f);
             p.setStyle(Paint.Style.FILL);
             p.setColor(h ? 0x55FFFFFF : 0xDDFFFFFF);
@@ -538,6 +791,7 @@ public class GameView extends View {
             c.drawText(LAB[i], px[i], py[i] + ts * 0.35f, p);
         }
         if (lay) c.restore();
+        if (ed && panel != 0) drawPanel(c);
     }
 
     @Override
