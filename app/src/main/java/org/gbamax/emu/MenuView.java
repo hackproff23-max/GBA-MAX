@@ -326,6 +326,15 @@ public class MenuView extends FrameLayout {
     public void refreshCovers() { adapter.notifyDataSetChanged(); }
 
     void toast(String s) { Toast.makeText(getContext(), s, Toast.LENGTH_SHORT).show(); }
+    class GlowFrame extends FrameLayout {
+        View hot; GradientDrawable dr; android.animation.ValueAnimator an;
+        GlowFrame(Context c, View in) { super(c); addView(in, new LayoutParams(-1, -2)); }
+        View hit(android.view.ViewGroup g, float x, float y) { for (int i = g.getChildCount() - 1; i >= 0; i--) { View ch = g.getChildAt(i); if (ch.getVisibility() != VISIBLE) continue; float px = x + g.getScrollX() - ch.getLeft(), py = y + g.getScrollY() - ch.getTop(); if (px < 0 || py < 0 || px > ch.getWidth() || py > ch.getHeight()) continue; if (ch.isClickable() && !(ch instanceof android.widget.SeekBar)) return ch; if (ch instanceof android.view.ViewGroup) { View r = hit((android.view.ViewGroup) ch, px, py); if (r != null) return r; } } return null; }
+        void setHot(View v) { if (v == hot) return; if (hot != null) { if (an != null) an.cancel(); hot.getOverlay().remove(dr); hot.animate().cancel(); hot.animate().scaleX(1f).scaleY(1f).translationZ(0).setDuration(140).start(); } hot = v; if (v == null) return; dr = new GradientDrawable(); dr.setCornerRadius(dp(16)); dr.setColor(0x40FFFFFF); dr.setStroke(dp(2), 0xFF4D9BFF); dr.setBounds(0, 0, v.getWidth(), v.getHeight()); v.getOverlay().add(dr); v.animate().cancel(); v.animate().scaleX(1.04f).scaleY(1.04f).translationZ(dp(6)).setDuration(140).start(); final GradientDrawable d2 = dr; an = android.animation.ValueAnimator.ofInt(110, 255); an.setDuration(650); an.setRepeatMode(android.animation.ValueAnimator.REVERSE); an.setRepeatCount(android.animation.ValueAnimator.INFINITE); an.addUpdateListener(x -> d2.setAlpha((int) x.getAnimatedValue())); an.start(); }
+        @Override protected void onDetachedFromWindow() { super.onDetachedFromWindow(); setHot(null); }
+        @Override public boolean dispatchTouchEvent(android.view.MotionEvent e) { int ac = e.getActionMasked(); if (ac == android.view.MotionEvent.ACTION_DOWN || ac == android.view.MotionEvent.ACTION_MOVE) setHot(hit(this, e.getX(), e.getY())); else if (ac == android.view.MotionEvent.ACTION_UP || ac == android.view.MotionEvent.ACTION_CANCEL) setHot(null); return super.dispatchTouchEvent(e); }
+        @Override public boolean dispatchGenericMotionEvent(android.view.MotionEvent e) { int ac = e.getActionMasked(); if (ac == android.view.MotionEvent.ACTION_HOVER_ENTER || ac == android.view.MotionEvent.ACTION_HOVER_MOVE) setHot(hit(this, e.getX(), e.getY())); else if (ac == android.view.MotionEvent.ACTION_HOVER_EXIT) setHot(null); return super.dispatchGenericMotionEvent(e); }
+    }
 
     void showSettings() {
         final Context c = getContext();
@@ -381,7 +390,7 @@ public class MenuView extends FrameLayout {
             rl.bottomMargin = dp(8);
             box.addView(row, rl);
         }
-        d.setContentView(box);
+        d.setContentView(new GlowFrame(getContext(), box));
         android.view.Window w = d.getWindow();
         if (w != null) {
             w.setBackgroundDrawable(new ColorDrawable(0));
@@ -416,7 +425,7 @@ public class MenuView extends FrameLayout {
         d.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
         box.setPadding(dp(18), dp(18), dp(18), dp(14));
         box.setBackground(glass(dp(26)));
-        d.setContentView(box);
+        d.setContentView(new GlowFrame(getContext(), box));
         android.view.Window w = d.getWindow();
         if (w != null) {
             w.setBackgroundDrawable(new ColorDrawable(0));

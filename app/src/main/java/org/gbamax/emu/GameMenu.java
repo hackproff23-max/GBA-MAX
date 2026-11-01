@@ -306,7 +306,7 @@ class GameMenu {
     class HoverList extends LinearLayout {
         View hot;
         HoverList(Context x) { super(x); setOrientation(VERTICAL); setPadding(dp(6), dp(4), dp(6), dp(4)); }
-        void paint(View v, boolean on) { if (!"hov".equals(v.getTag())) return; v.animate().cancel(); v.animate().scaleX(on ? 1.04f : 1f).scaleY(on ? 1.04f : 1f).translationZ(on ? dp(6) : 0).setDuration(140).start(); if (v.getBackground() instanceof GradientDrawable) { GradientDrawable gd = (GradientDrawable) v.getBackground(); gd.setColor(on ? 0xE6CFE3FF : 0x99FFFFFF); gd.setStroke(dp(on ? 2 : 1), on ? 0xFF4D9BFF : 0xCCFFFFFF); } }
+        void paint(View v, boolean on) { if (true) return; v.animate().cancel(); v.animate().scaleX(on ? 1.04f : 1f).scaleY(on ? 1.04f : 1f).translationZ(on ? dp(6) : 0).setDuration(140).start(); if (v.getBackground() instanceof GradientDrawable) { GradientDrawable gd = (GradientDrawable) v.getBackground(); gd.setColor(on ? 0xE6CFE3FF : 0x99FFFFFF); gd.setStroke(dp(on ? 2 : 1), on ? 0xFF4D9BFF : 0xCCFFFFFF); } }
         void setHot(View v) { if (v == hot) return; if (hot != null) paint(hot, false); hot = v; if (v != null) paint(v, true); }
         @Override public boolean dispatchTouchEvent(android.view.MotionEvent e) { int ac = e.getActionMasked(); if (ac == android.view.MotionEvent.ACTION_DOWN || ac == android.view.MotionEvent.ACTION_MOVE) { View f = null; for (int i = 0; i < getChildCount(); i++) { View ch = getChildAt(i); if (e.getX() >= ch.getLeft() && e.getX() <= ch.getRight() && e.getY() >= ch.getTop() && e.getY() <= ch.getBottom()) f = ch; } setHot(f); } else if (ac == android.view.MotionEvent.ACTION_UP || ac == android.view.MotionEvent.ACTION_CANCEL) setHot(null); return super.dispatchTouchEvent(e); }
     }
