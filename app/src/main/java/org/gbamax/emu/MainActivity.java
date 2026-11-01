@@ -76,6 +76,7 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         VideoSettings.load(this);
+        Tema.load(this);
         VideoSettings.applyMenuOrientation(this); // menu sempre em retrato
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         // tela cheia total: desenha por cima do recorte da câmera (notch)
@@ -142,7 +143,7 @@ public class MainActivity extends Activity {
             else mv.setGames(new ArrayList<MenuView.Game>(), null, false);
             ensureFolder();
             aplicarFundo();
-            try { root.addView(new Intro(this), new FrameLayout.LayoutParams(-1, -1)); } catch (Throwable t) { }
+            if (!Tema.introJa) { Tema.introJa = true; try { root.addView(new Intro(this), new FrameLayout.LayoutParams(-1, -1)); } catch (Throwable t) { } }
         } catch (Throwable t) {
             showError(trace(t));
         }

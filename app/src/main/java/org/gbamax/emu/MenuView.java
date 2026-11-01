@@ -109,7 +109,7 @@ public class MenuView extends FrameLayout {
 
     GradientDrawable glass(float rad) {
         GradientDrawable g = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[]{0xF5FFFFFF, 0xE6E4EAF3});
+                new int[]{Tema.get(Tema.VIDRO_TOPO), Tema.get(Tema.VIDRO_BASE)});
         g.setCornerRadius(rad);
         g.setStroke(dp(1.5f), 0xFFFFFFFF);
         return g;
@@ -185,7 +185,7 @@ public class MenuView extends FrameLayout {
         GradientDrawable ng = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
                 new int[]{0xFF5B9BFF, 0xFF1556D6});
         ng.setCornerRadius(dp(15));
-        ng.setStroke(dp(1), 0x99FFFFFF);
+        ng.setStroke(dp(1), Tema.get(Tema.LINHA));
         net.setBackground(ng);
         net.setElevation(dp(3));
         LinearLayout.LayoutParams nl = new LinearLayout.LayoutParams(-2, dp(30));
@@ -194,14 +194,14 @@ public class MenuView extends FrameLayout {
         LinearLayout.LayoutParams cl = new LinearLayout.LayoutParams(dp(22), dp(22));
         cl.leftMargin = dp(10);
         coins = new TextView(c);
-        coins.setTextColor(0xFF1B1F27);
+        coins.setTextColor(Tema.get(Tema.TEXTO));
         coins.setTextSize(13);
         coins.setTypeface(Typeface.DEFAULT_BOLD);
         coins.setText("0");
         LinearLayout.LayoutParams ctl = new LinearLayout.LayoutParams(-2, -2);
         ctl.leftMargin = dp(4);
 
-        top.addView(new IconView(c, Icons.CAL, 0xFF1B1F27), new LinearLayout.LayoutParams(dp(18), dp(18)));
+        top.addView(new IconView(c, Icons.CAL, Tema.get(Tema.TEXTO)), new LinearLayout.LayoutParams(dp(18), dp(18)));
         TextClock td = new TextClock(c) {
             @Override public void setText(CharSequence t, TextView.BufferType b) {
                 super.setText(t == null ? null : t.toString().toUpperCase(java.util.Locale.ROOT), b);
@@ -211,28 +211,32 @@ public class MenuView extends FrameLayout {
         td.setFormat24Hour("dd/MMM/yyyy");
         td.setTextSize(14);
         td.setTypeface(Typeface.DEFAULT_BOLD);
-        td.setTextColor(0xFF1B1F27);
+        td.setTextColor(Tema.get(Tema.TEXTO));
         td.setSingleLine(true);
         LinearLayout.LayoutParams tdl = new LinearLayout.LayoutParams(-2, -2);
         tdl.leftMargin = dp(5);
         top.addView(td, tdl);
         LinearLayout.LayoutParams ckl = new LinearLayout.LayoutParams(dp(18), dp(18));
         ckl.leftMargin = dp(12);
-        top.addView(new IconView(c, Icons.CLOCK, 0xFF1B1F27), ckl);
+        top.addView(new IconView(c, Icons.CLOCK, Tema.get(Tema.TEXTO)), ckl);
         TextClock tc = new TextClock(c);
         tc.setFormat12Hour("HH:mm");
         tc.setFormat24Hour("HH:mm");
         tc.setTextSize(14);
         tc.setTypeface(Typeface.DEFAULT_BOLD);
-        tc.setTextColor(0xFF1B1F27);
+        tc.setTextColor(Tema.get(Tema.TEXTO));
         tc.setSingleLine(true);
         LinearLayout.LayoutParams tcl = new LinearLayout.LayoutParams(-2, -2);
         tcl.leftMargin = dp(5);
         top.addView(tc, tcl);
         top.addView(new View(c), new LinearLayout.LayoutParams(0, 1, 1f));
+        final Recarregar rec = new Recarregar(c);
+        rec.setOnClickListener(v -> { rec.girar(); h.refresh(); toast("Lista atualizada"); });
+        top.addView(rec, new LinearLayout.LayoutParams(dp(34), dp(34)));
+        top.addView(new View(c), new LinearLayout.LayoutParams(0, 1, 1f));
 
         batTxt = new TextView(c);
-        batTxt.setTextColor(0xFF1B1F27);
+        batTxt.setTextColor(Tema.get(Tema.TEXTO));
         batTxt.setTextSize(12);
         batTxt.setTypeface(Typeface.DEFAULT_BOLD);
         batTxt.setText("100%");
@@ -258,8 +262,8 @@ public class MenuView extends FrameLayout {
         dock.setElevation(dp(12));
         // mesma sequência e mesmos ícones/cores da tela de Configurações
         int[] ty = {Icons.HOME, Icons.SCREEN, Icons.AUDIO, Icons.PAD, Icons.SAVE, Icons.GEAR};
-        int[] bg = {0xFFFFFFFF, 0xFF1E6BE6, 0xFFFFA000, 0xFF7E57C2, 0xFF2EAD4B, 0xFF3A3C42};
-        int[] ic = {0xFF111111, Color.WHITE, Color.WHITE, Color.WHITE, Color.WHITE, Color.WHITE};
+        int[] bg = Tema.dockBg();
+        int[] ic = Tema.dockIc();
         for (int i = 0; i < 6; i++) {
             DockBtn b = new DockBtn(c, ty[i], bg[i], ic[i], i == 0);
             final int k = i;
@@ -333,28 +337,28 @@ public class MenuView extends FrameLayout {
         box.setBackground(glass(dp(26)));
         TextView title = new TextView(c);
         title.setText("Configurações");
-        title.setTextColor(0xFF1B1F27);
+        title.setTextColor(Tema.get(Tema.TEXTO));
         title.setTextSize(18);
         title.setTypeface(Typeface.DEFAULT_BOLD);
         title.setPadding(dp(6), 0, 0, dp(12));
         box.addView(title);
         String[] tx = {"Configuração de tela", "Configuração de áudio", "Configuração de controle", "Configuração de saves", "Avançado"};
         int[] ty = {Icons.SCREEN, Icons.AUDIO, Icons.PAD, Icons.SAVE, Icons.ADV};
-        int[] bg = {0xFF1E6BE6, 0xFFFFA000, 0xFF7E57C2, 0xFF2EAD4B, 0xFF3A3C42};
+        int[] bg = Tema.dockBg1();
         for (int i = 0; i < 5; i++) {
             LinearLayout row = new LinearLayout(c);
             row.setOrientation(LinearLayout.HORIZONTAL);
             row.setGravity(Gravity.CENTER_VERTICAL);
             row.setPadding(dp(8), dp(4), dp(14), dp(4));
             GradientDrawable rg = new GradientDrawable();
-            rg.setColor(0x99FFFFFF);
+            rg.setColor(Tema.get(Tema.LINHA));
             rg.setCornerRadius(dp(18));
             rg.setStroke(dp(1), 0xCCFFFFFF);
             row.setBackground(rg);
-            row.addView(new DockBtn(c, ty[i], bg[i], Color.WHITE, false), new LinearLayout.LayoutParams(dp(52), dp(52)));
+            row.addView(new DockBtn(c, ty[i], bg[i], Tema.glyph(i + 1), false), new LinearLayout.LayoutParams(dp(52), dp(52)));
             TextView t = new TextView(c);
             t.setText(tx[i]);
-            t.setTextColor(0xFF1B1F27);
+            t.setTextColor(Tema.get(Tema.TEXTO));
             t.setTextSize(15);
             t.setTypeface(Typeface.DEFAULT_BOLD);
             LinearLayout.LayoutParams tl2 = new LinearLayout.LayoutParams(0, -2, 1f);
@@ -362,7 +366,7 @@ public class MenuView extends FrameLayout {
             row.addView(t, tl2);
             TextView ar = new TextView(c);
             ar.setText("›");
-            ar.setTextColor(0xFF8A93A3);
+            ar.setTextColor(Tema.get(Tema.TEXTO2));
             ar.setTextSize(22);
             row.addView(ar);
             final int k = i;
@@ -436,13 +440,13 @@ public class MenuView extends FrameLayout {
         final Context c = getContext();
         LinearLayout box = new LinearLayout(c);
         box.setOrientation(LinearLayout.VERTICAL);
-        box.addView(label("Capas dos jogos", 18, 0xFF1B1F27, true));
+        box.addView(label("Capas dos jogos", 18, Tema.get(Tema.TEXTO), true));
         TextView m = label("Deseja baixar as capas dos seus jogos? O download continua em segundo plano.", 14, 0xFF4A5363, false);
         m.setPadding(0, dp(8), 0, dp(14));
         box.addView(m);
         LinearLayout row = new LinearLayout(c);
         row.setOrientation(LinearLayout.HORIZONTAL);
-        TextView no = btn("Agora não", 0xFFE3E7EE, 0xFF1B1F27);
+        TextView no = btn("Agora não", 0xFFE3E7EE, Tema.get(Tema.TEXTO));
         TextView yes = btn("Baixar capas", 0xFF2EAD4B, Color.WHITE);
         row.addView(no, new LinearLayout.LayoutParams(0, -2, 1f));
         LinearLayout.LayoutParams yl = new LinearLayout.LayoutParams(0, -2, 1f);
@@ -477,7 +481,7 @@ public class MenuView extends FrameLayout {
         final Context c = getContext();
         LinearLayout box = new LinearLayout(c);
         box.setOrientation(LinearLayout.VERTICAL);
-        box.addView(label("Baixando capas", 18, 0xFF1B1F27, true));
+        box.addView(label("Baixando capas", 18, Tema.get(Tema.TEXTO), true));
         final TextView st = label("Iniciando...", 13, 0xFF4A5363, false);
         st.setPadding(0, dp(8), 0, dp(8));
         st.setSingleLine(true);
@@ -486,12 +490,12 @@ public class MenuView extends FrameLayout {
         final android.widget.ProgressBar pb = new android.widget.ProgressBar(c, null, android.R.attr.progressBarStyleHorizontal);
         pb.setMax(100);
         box.addView(pb, new LinearLayout.LayoutParams(-1, dp(12)));
-        final TextView info = label("", 13, 0xFF1B1F27, true);
+        final TextView info = label("", 13, Tema.get(Tema.TEXTO), true);
         info.setPadding(0, dp(10), 0, dp(14));
         box.addView(info);
         LinearLayout row = new LinearLayout(c);
         row.setOrientation(LinearLayout.HORIZONTAL);
-        final TextView cancel = btn("Cancelar", 0xFFE3E7EE, 0xFF1B1F27);
+        final TextView cancel = btn("Cancelar", 0xFFE3E7EE, Tema.get(Tema.TEXTO));
         final TextView bg = btn("Segundo plano", 0xFF1E6BE6, Color.WHITE);
         row.addView(cancel, new LinearLayout.LayoutParams(0, -2, 1f));
         LinearLayout.LayoutParams bl = new LinearLayout.LayoutParams(0, -2, 1f);
@@ -636,21 +640,21 @@ public class MenuView extends FrameLayout {
             plate.setGravity(Gravity.CENTER);
             plate.setPadding(dp(6), dp(5), dp(6), dp(6));
             GradientDrawable g = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-                    new int[]{0xFAFFFFFF, 0xF2E6ECF5});
+                    new int[]{Tema.get(Tema.PLACA_TOPO), Tema.get(Tema.PLACA_BASE)});
             g.setCornerRadius(dp(14));
             g.setStroke(dp(1), 0xCCFFFFFF);
             plate.setBackground(g);
             plate.setElevation(dp(4));
 
             t1 = new TextView(c);
-            t1.setTextColor(0xFF1B1F27);
+            t1.setTextColor(Tema.get(Tema.TEXTO));
             t1.setTextSize(12);
             t1.setTypeface(Typeface.DEFAULT_BOLD);
             t1.setSingleLine(true);
             t1.setEllipsize(TextUtils.TruncateAt.END);
             t1.setGravity(Gravity.CENTER);
             t2 = new TextView(c);
-            t2.setTextColor(0xFF8A93A3);
+            t2.setTextColor(Tema.get(Tema.TEXTO2));
             t2.setTextSize(10.5f);
             t2.setSingleLine(true);
             t2.setGravity(Gravity.CENTER);
@@ -886,7 +890,7 @@ public class MenuView extends FrameLayout {
             RectF body = new RectF(den, den, w - nub - den, h - den);
             p.setStyle(Paint.Style.STROKE);
             p.setStrokeWidth(den * 1.5f);
-            p.setColor(0xFF1B1F27);
+            p.setColor(Tema.get(Tema.TEXTO));
             c.drawRoundRect(body, den * 4, den * 4, p);
             int on = pct <= 0 ? 0 : pct <= 25 ? 1 : pct <= 50 ? 2 : pct <= 75 ? 3 : 4;
             int col = pct <= 25 ? 0xFFE53935 : pct <= 50 ? 0xFFFB8C00 : pct <= 75 ? 0xFFFDD835 : 0xFF2EAD4B;
@@ -898,7 +902,7 @@ public class MenuView extends FrameLayout {
                 float x0 = l + i * (bw + gap);
                 c.drawRoundRect(x0, t, x0 + bw, b, den * .8f, den * .8f, p);
             }
-            p.setColor(0xFF1B1F27);
+            p.setColor(Tema.get(Tema.TEXTO));
             c.drawRoundRect(w - nub, h * .3f, w, h * .7f, den * 1.5f, den * 1.5f, p);
         }
     }

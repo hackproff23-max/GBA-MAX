@@ -259,7 +259,7 @@ final class Personalizar {
     // ================= interface (mesmo estilo da janela de Configurações) =================
     interface Pick { void on(int i); }
 
-    static final int IC_IMG = 100, IC_BTN = 101, IC_INFO = 102, IC_TRASH = 103;
+    static final int IC_IMG = 100, IC_BTN = 101, IC_INFO = 102, IC_TRASH = 103, IC_COR = 104;
 
     /** Ícone redondo em vidro, igual aos botões da dock/Configurações. */
     static class Ico extends View {
@@ -318,6 +318,13 @@ final class Personalizar {
                     p.setStyle(Paint.Style.FILL);
                     c.drawCircle(x + .4f * r, y - .3f * r, r * .14f, p);
                     break;
+                case IC_COR:
+                    c.drawCircle(x, y, r * .88f, p);
+                    p.setStyle(Paint.Style.FILL);
+                    c.drawCircle(x - .35f * r, y - .25f * r, r * .15f, p);
+                    c.drawCircle(x + .3f * r, y - .3f * r, r * .15f, p);
+                    c.drawCircle(x - .05f * r, y + .4f * r, r * .15f, p);
+                    break;
                 case IC_BTN:
                     c.drawCircle(x, y, r * .85f, p);
                     p.setStyle(Paint.Style.FILL);
@@ -356,7 +363,7 @@ final class Personalizar {
         box.setOrientation(LinearLayout.VERTICAL);
         box.setPadding(mv.dp(16), mv.dp(16), mv.dp(16), mv.dp(10));
         box.setBackground(mv.glass(mv.dp(26)));
-        TextView t = mv.label(titulo, 18, 0xFF1B1F27, true);
+        TextView t = mv.label(titulo, 18, Tema.get(Tema.TEXTO), true);
         t.setPadding(mv.dp(6), 0, 0, mv.dp(12));
         box.addView(t);
         return box;
@@ -382,14 +389,14 @@ final class Personalizar {
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setPadding(mv.dp(8), mv.dp(4), mv.dp(14), mv.dp(4));
         GradientDrawable rg = new GradientDrawable();
-        rg.setColor(0x99FFFFFF);
+        rg.setColor(Tema.get(Tema.LINHA));
         rg.setCornerRadius(mv.dp(18));
         rg.setStroke(mv.dp(1), 0xCCFFFFFF);
         row.setBackground(rg);
         row.addView(new Ico(a, type, cor, mv.den), new LinearLayout.LayoutParams(mv.dp(52), mv.dp(52)));
         TextView t = new TextView(a);
         t.setText(texto);
-        t.setTextColor(0xFF1B1F27);
+        t.setTextColor(Tema.get(Tema.TEXTO));
         t.setTextSize(15);
         t.setTypeface(Typeface.DEFAULT_BOLD);
         LinearLayout.LayoutParams tl = new LinearLayout.LayoutParams(0, -2, 1f);
@@ -397,7 +404,7 @@ final class Personalizar {
         row.addView(t, tl);
         TextView ar = new TextView(a);
         ar.setText("›");
-        ar.setTextColor(0xFF8A93A3);
+        ar.setTextColor(Tema.get(Tema.TEXTO2));
         ar.setTextSize(22);
         row.addView(ar);
         row.setOnClickListener(v -> r.run());
@@ -428,6 +435,10 @@ final class Personalizar {
             d.dismiss();
             a.pickFiles(5, false, "image/*");
         }));
+        box.addView(linha(mv, a, IC_COR, 0xFFD81B60, "Cores do app", () -> {
+            d.dismiss();
+            TemaUi.lista(a);
+        }));
         box.addView(linha(mv, a, IC_TRASH, 0xFFE53935, "Remover...", () -> {
             d.dismiss();
             remover(a);
@@ -450,7 +461,7 @@ final class Personalizar {
         int maxH = (int) (a.getResources().getDisplayMetrics().heightPixels * .55f);
         box.addView(sv, new LinearLayout.LayoutParams(-1, -2));
         final Dialog d = janela(mv, a, box);
-        TextView ok = mv.btn("OK", 0xFFE3E7EE, 0xFF1B1F27);
+        TextView ok = mv.btn("OK", 0xFFE3E7EE, Tema.get(Tema.TEXTO));
         LinearLayout.LayoutParams fl = new LinearLayout.LayoutParams(-1, -2);
         fl.topMargin = mv.dp(10);
         box.addView(ok, fl);
@@ -484,12 +495,12 @@ final class Personalizar {
             final int k = i;
             TextView t = new TextView(a);
             t.setText(itens[i]);
-            t.setTextColor(0xFF1B1F27);
+            t.setTextColor(Tema.get(Tema.TEXTO));
             t.setTextSize(15);
             t.setTypeface(Typeface.DEFAULT_BOLD);
             t.setPadding(mv.dp(16), mv.dp(13), mv.dp(16), mv.dp(13));
             GradientDrawable g = new GradientDrawable();
-            g.setColor(0x99FFFFFF);
+            g.setColor(Tema.get(Tema.LINHA));
             g.setCornerRadius(mv.dp(16));
             g.setStroke(mv.dp(1), 0xCCFFFFFF);
             t.setBackground(g);
