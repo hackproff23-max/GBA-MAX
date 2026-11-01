@@ -138,7 +138,7 @@ public class MainActivity extends Activity {
             root.addView(mv);
             setContentView(root);
             built = true;
-            String d = getPreferences(0).getString("dir", null);
+            String d = Pasta.ler(this) != null ? null : getPreferences(0).getString("dir", null);
             if (d != null) { dirUri = Uri.parse(d); scan(dirUri); }
             else mv.setGames(new ArrayList<MenuView.Game>(), null, false);
             ensureFolder();
@@ -327,13 +327,13 @@ public class MainActivity extends Activity {
                 recreate();
                 return;
             }
-            if (dirUri == null && !autoScanned) { autoScanned = true; scanFolder(Pastas.raiz()); }
+            if (dirUri == null && !autoScanned) { autoScanned = true; scanFolder(Pasta.atual(this)); }
         } catch (Throwable t) {
             toast("Pasta " + FOLDER + ": " + t.getMessage());
         }
     }
 
-    void scanFolder(File dir) {
+    void scanFolder(File dir) { scanFolderAsync(dir); } void scanFolderSync(File dir) {
         TreeMap<String, MenuView.Game> m = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
         Map<String, Uri> im = new HashMap<>();
         walkFiles(dir, m, im, 0);
@@ -361,7 +361,7 @@ public class MainActivity extends Activity {
         int dot = n.lastIndexOf('.');
         if (dot <= 0) return;
         String base = n.substring(0, dot), low = n.toLowerCase();
-        if (low.endsWith(".zip") || low.endsWith(".gba") || low.endsWith(".agb")) {
+        if (low.endsWith(".gba") || low.endsWith(".agb") || (low.endsWith(".zip") && Pasta.zipTemJogo(this, u))) {
             MenuView.Game g = new MenuView.Game();
             g.name = base;
             g.uri = u;
@@ -385,7 +385,7 @@ public class MainActivity extends Activity {
     }
 
     // ================= pasta escolhida pelo seletor =================
-    void chooseDir() {
+    void chooseDir() { escolherPasta(); } void chooseDirSaf() {
         Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
         i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
                 | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
@@ -407,6 +407,8 @@ public class MainActivity extends Activity {
         scan(u);
     }
 
+    void escolherPasta() { Pasta.escolher(this, f -> { if (!Pasta.salvar(this, f)) { toast("Não consegui salvar a pasta"); return; } getPreferences(0).edit().remove("dir").apply(); dirUri = null; autoScanned = true; scanFolder(f); toast("Pasta dos jogos: " + f.getName()); }); }
+    void scanFolderAsync(final File dir) { new Thread(() -> { final TreeMap<String, MenuView.Game> m = new TreeMap<>(String.CASE_INSENSITIVE_ORDER); final Map<String, Uri> im = new HashMap<>(); walkFiles(dir, m, im, 0); runOnUiThread(() -> { List<MenuView.Game> l = new ArrayList<>(m.values()); for (MenuView.Game g : l) g.cover = im.get(g.name.toLowerCase()); mv.setGames(l, getPreferences(0).getString("last", null), true); fetchCovers(l); }); }).start(); }
     void scan(Uri tree) {
         TreeMap<String, MenuView.Game> m = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
         Map<String, Uri> im = new HashMap<>();
