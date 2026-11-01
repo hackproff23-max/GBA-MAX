@@ -305,17 +305,14 @@ final class Personalizar {
             if (!tmp.renameTo(dest)) { Pastas.copiar(tmp, dest); tmp.delete(); }
             String aviso = "";
             if (tipo(dest).equals("video")) {
+                // só um aviso: a validação nunca recusa o arquivo (quem decide é o player, na hora de tocar)
                 try {
                     MediaMetadataRetriever r = new MediaMetadataRetriever();
                     r.setDataSource(dest.getAbsolutePath());
                     String ms = r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION);
                     r.release();
-                    if (ms == null) { dest.delete(); return "Este vídeo não é suportado pelo aparelho"; }
-                    if (Long.parseLong(ms) > 10500) aviso = " (só os primeiros 10 s serão exibidos)";
-                } catch (Throwable t) {
-                    dest.delete();
-                    return "Este vídeo não é suportado pelo aparelho";
-                }
+                    if (ms != null && Long.parseLong(ms) > 10500) aviso = " (só os primeiros 10 s serão exibidos)";
+                } catch (Throwable t) { }
             }
             return "Abertura definida" + aviso;
         } catch (Throwable t) {
