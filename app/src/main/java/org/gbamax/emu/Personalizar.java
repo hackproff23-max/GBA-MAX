@@ -8,6 +8,7 @@ import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.LinearGradient;
+import android.graphics.Movie;
 import android.graphics.Outline;
 import android.graphics.Paint;
 import android.graphics.Path;
@@ -97,6 +98,8 @@ final class Personalizar {
         return f.isFile() ? f : null;
     }
 
+    static File fundoGif(Context c) { File d = dir(c); if (d == null) return null; File f = new File(d, "fundo.gif"); return f.isFile() ? f : null; }
+    static boolean ehGif(byte[] b) { return b.length > 6 && b[0] == 71 && b[1] == 73 && b[2] == 70 && b[3] == 56; }
     static void apagarBotoes(Context c) {
         File b = botoes(c);
         File[] l = b == null ? null : b.listFiles();
@@ -244,13 +247,13 @@ final class Personalizar {
         File d = dir(c);
         if (d == null) return "Sem acesso à pasta GBA-MAX (permita o acesso aos arquivos)";
         try (InputStream in = c.getContentResolver().openInputStream(u)) {
-            Bitmap b = decode(lerTudo(in, 64L << 20), 1800);
+            byte[] dados = lerTudo(in, 64L << 20); if (ehGif(dados)) { if (Movie.decodeByteArray(dados, 0, dados.length) == null) return "Não consegui ler esse GIF"; try (FileOutputStream go = new FileOutputStream(new File(d, "fundo.gif"))) { go.write(dados); } new File(d, "fundo.png").delete(); return "Fundo animado (GIF) definido"; } Bitmap b = decode(dados, 1800);
             if (b == null) return "Não consegui ler essa imagem";
             try (FileOutputStream o = new FileOutputStream(new File(d, "fundo.png"))) {
                 b.compress(Bitmap.CompressFormat.PNG, 100, o);
             }
             b.recycle();
-            return "Fundo do app definido";
+            new File(d, "fundo.gif").delete(); return "Fundo do app definido";
         } catch (Throwable t) {
             return "Não consegui importar o fundo";
         }
@@ -431,7 +434,7 @@ final class Personalizar {
             d.dismiss();
             nomesArquivos(a);
         }));
-        box.addView(linha(mv, a, IC_IMG, 0xFF2EAD4B, "Fundo do app (imagem)", () -> {
+        box.addView(linha(mv, a, IC_IMG, 0xFF2EAD4B, "Fundo do app (imagem ou GIF)", () -> {
             d.dismiss();
             a.pickFiles(5, false, "image/*");
         }));
@@ -472,7 +475,7 @@ final class Personalizar {
     static void remover(final MainActivity a) {
         lista(a, "Remover", new String[]{"Botões personalizados", "Fundo do app"}, w -> {
             if (w == 0) { apagarBotoes(a); if (a.gv != null) a.gv.loadSkin(a); }
-            else { File f = fundo(a); if (f != null) f.delete(); a.aplicarFundo(); }
+            else { File f = fundo(a); if (f != null) f.delete(); File g = fundoGif(a); if (g != null) g.delete(); a.aplicarFundo(); }
             a.toast("Removido");
         });
     }
