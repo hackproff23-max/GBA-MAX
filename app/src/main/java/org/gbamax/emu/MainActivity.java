@@ -141,6 +141,7 @@ public class MainActivity extends Activity {
             else mv.setGames(new ArrayList<MenuView.Game>(), null, false);
             ensureFolder();
             aplicarFundo();
+            try { root.addView(new Intro(this), new FrameLayout.LayoutParams(-1, -1)); } catch (Throwable t) { }
         } catch (Throwable t) {
             showError(trace(t));
         }
