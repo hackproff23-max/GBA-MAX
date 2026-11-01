@@ -131,6 +131,7 @@ public class MainActivity extends Activity {
                 @Override public void editLayout() { startLayoutEdit(); }
                 @Override public void importShaders() { pickShaders(); }
             });
+            root.addView(new GifBg(this, mv), new FrameLayout.LayoutParams(-1, -1));
             root.addView(gl);
             root.addView(gv);
             root.addView(mv);
@@ -193,6 +194,7 @@ public class MainActivity extends Activity {
             if (f != null) b = Personalizar.decodeMax(f, 1800);
         } catch (Throwable t) { }
         mv.setCustomBg(b);
+        mv.bgView.setVisibility(b != null ? View.VISIBLE : View.GONE);
     }
 
 
