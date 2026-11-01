@@ -29,7 +29,7 @@ import java.util.Locale;
 class GameMenu {
     interface Bool { void set(boolean v); }
 
-    static final int[] FF = {2, 3, 5, 8, 16};
+    static final int[] FF = {1, 2, 3, 5, 8, 16};
     static final String[] BUF = {"Pequeno", "Médio", "Grande"};
 
     final MainActivity a;
@@ -293,7 +293,7 @@ class GameMenu {
         l.addView(row(MenuView.Icons.AUDIO, 0xFFFFA000, "Áudio", "Volume, mudo e buffer", this::audio), lp());
         l.addView(row(MenuView.Icons.PAD, 0xFF7E57C2, "Controle", "Opacidade, vibração e layout", this::control), lp());
         l.addView(row(MenuView.Icons.ADV, 0xFF3A3C42, "Avançado", "Avanço rápido, quadros e reiniciar", this::advanced), lp());
-        l.addView(row(MenuView.Icons.ADV, 0xFF1E6BE6, "Avanço rápido", VideoSettings.ffSpeed + "x", () -> { optD.dismiss(); ffPick(); }), lp());
+        l.addView(row(MenuView.Icons.ADV, 0xFF1E6BE6, "Avanço rápido", ffl(VideoSettings.ffSpeed), () -> { optD.dismiss(); ffPick(); }), lp());
         l.addView(toggle("Retomar de onde parou", VideoSettings.resume, on -> {
             VideoSettings.resume = on;
             if (!on) a.clearResume();
@@ -302,7 +302,8 @@ class GameMenu {
         optD = pageDialog("Opções", l, 6, null); optD.show();
     }
 
-    void ffPick() { int cur = 1; for (int i = 0; i < FF.length; i++) if (FF[i] == VideoSettings.ffSpeed) cur = i; String[] it = new String[FF.length]; for (int i = 0; i < FF.length; i++) it[i] = FF[i] + "x"; vmBack(this::options).choice("Avanço rápido", it, cur, i -> { VideoSettings.ffSpeed = FF[i]; VideoSettings.save(c); options(); }); }
+    static String ffl(int v) { return v == 1 ? "1,5x" : v + "x"; }
+    void ffPick() { int cur = 1; for (int i = 0; i < FF.length; i++) if (FF[i] == VideoSettings.ffSpeed) cur = i; String[] it = new String[FF.length]; for (int i = 0; i < FF.length; i++) it[i] = ffl(FF[i]); vmBack(this::options).choice("Avanço rápido", it, cur, i -> { VideoSettings.ffSpeed = FF[i]; VideoSettings.save(c); options(); }); }
     void audio() {
         LinearLayout l = new LinearLayout(c);
         l.setOrientation(LinearLayout.VERTICAL);
@@ -375,10 +376,10 @@ class GameMenu {
         final int curFf = cur;
         LinearLayout l = new LinearLayout(c);
         l.setOrientation(LinearLayout.VERTICAL);
-        l.addView(row(MenuView.Icons.ADV, 0xFF1E6BE6, "Avanço rápido", VideoSettings.ffSpeed + "x", () -> {
+        l.addView(row(MenuView.Icons.ADV, 0xFF1E6BE6, "Avanço rápido", ffl(VideoSettings.ffSpeed), () -> {
             advD.dismiss();
             String[] it = new String[FF.length];
-            for (int i = 0; i < FF.length; i++) it[i] = FF[i] + "x";
+            for (int i = 0; i < FF.length; i++) it[i] = ffl(FF[i]);
             vmBack(this::advanced).choice("Avanço rápido", it, curFf, i -> {
                 VideoSettings.ffSpeed = FF[i];
                 VideoSettings.save(c);

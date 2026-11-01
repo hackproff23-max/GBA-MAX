@@ -825,12 +825,12 @@ public class MainActivity extends Activity {
         short[] ab = new short[8192];
         int frame = 0, shown = 0;
         short[] ffb = new short[8192 * 8], ffo = new short[8192 * 8];
-        int ffn = 0;
+        int ffn = 0; float ffAcc = 0;
         final long T = 16743000L; // ~59.73 fps
         while (run) {
             long t0 = System.nanoTime();
             boolean f = gv.ff;
-            int n = f ? Math.max(2, VideoSettings.ffSpeed) : 1; // avanço rápido
+            int n = 1; if (f) { if (VideoSettings.ffSpeed == 1) { ffAcc += 1.5f; n = (int) ffAcc; ffAcc -= n; } else n = Math.max(2, VideoSettings.ffSpeed); }
             int fs = VideoSettings.frameskip; // pulo de quadros
             for (int i = 0; i < n; i++) {
                 frame++;
