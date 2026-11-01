@@ -1,21 +1,33 @@
 package org.gbamax.emu;
 
-import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.Context;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.media.MediaMetadataRetriever;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.LinearGradient;
+import android.graphics.Outline;
+import android.graphics.Paint;
+import android.graphics.Path;
+import android.graphics.RectF;
+import android.graphics.Shader;
+import android.graphics.Typeface;
+import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.provider.OpenableColumns;
+import android.view.Gravity;
+import android.view.View;
+import android.view.ViewOutlineProvider;
+import android.view.Window;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.util.HashMap;
@@ -26,8 +38,8 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 /**
- * Personalização: imagens dos botões, fundo do app e abertura (png, gif ou vídeo).
- * Tudo fica em GBA-MAX/Personalizar (Botoes/, fundo.png e abertura.*).
+ * Personalização: imagens dos botões e fundo do app.
+ * Tudo fica em GBA-MAX/Personalizar (Botoes/ e fundo.png).
  */
 final class Personalizar {
     static final String BOTOES = "Botoes";
@@ -83,22 +95,6 @@ final class Personalizar {
         if (d == null) return null;
         File f = new File(d, "fundo.png");
         return f.isFile() ? f : null;
-    }
-
-    static File abertura(Context c) {
-        File d = dir(c);
-        if (d == null) return null;
-        File[] l = d.listFiles();
-        if (l == null) return null;
-        for (File f : l) if (f.isFile() && f.getName().startsWith("abertura.") && f.length() > 0) return f;
-        return null;
-    }
-
-    static void apagarAberturas(Context c) {
-        File d = dir(c);
-        File[] l = d == null ? null : d.listFiles();
-        if (l == null) return;
-        for (File f : l) if (f.getName().startsWith("abertura.")) f.delete();
     }
 
     static void apagarBotoes(Context c) {
@@ -260,147 +256,253 @@ final class Personalizar {
         }
     }
 
-    /** Detecta o tipo pelo conteúdo: "gif", "img" ou "video". */
-    static String tipo(File f) {
-        byte[] h = new byte[16];
-        int n = 0;
-        try (FileInputStream in = new FileInputStream(f)) { n = in.read(h); } catch (Throwable t) { }
-        if (n >= 4) {
-            if (h[0] == 'G' && h[1] == 'I' && h[2] == 'F') return "gif";
-            if ((h[0] & 0xFF) == 0x89 && h[1] == 'P' && h[2] == 'N' && h[3] == 'G') return "img";
-            if ((h[0] & 0xFF) == 0xFF && (h[1] & 0xFF) == 0xD8) return "img";
-            if (h[0] == 'B' && h[1] == 'M') return "img";
-            if (n >= 12 && h[0] == 'R' && h[1] == 'I' && h[2] == 'F' && h[3] == 'F' && h[8] == 'W' && h[9] == 'E') return "img";
-        }
-        return "video";
-    }
+    // ================= interface (mesmo estilo da janela de Configurações) =================
+    interface Pick { void on(int i); }
 
-    static String extDe(File f, String nomeOriginal) {
-        String t = tipo(f);
-        if (t.equals("gif")) return "gif";
-        if (t.equals("img")) {
-            byte[] h = new byte[4];
-            try (FileInputStream in = new FileInputStream(f)) { in.read(h); } catch (Throwable e) { }
-            return (h[0] & 0xFF) == 0x89 ? "png" : (h[0] & 0xFF) == 0xFF ? "jpg" : "img";
-        }
-        String n = nomeOriginal == null ? "" : nomeOriginal.toLowerCase(Locale.ROOT);
-        int dot = n.lastIndexOf('.');
-        String e = dot >= 0 ? n.substring(dot + 1).replaceAll("[^a-z0-9]", "") : "";
-        return e.isEmpty() || e.length() > 5 ? "mp4" : e;
-    }
+    static final int IC_IMG = 100, IC_BTN = 101, IC_INFO = 102, IC_TRASH = 103;
 
-    static String importarAbertura(Context c, Uri u) {
-        File d = dir(c);
-        if (d == null) return "Sem acesso à pasta GBA-MAX (permita o acesso aos arquivos)";
-        File tmp = new File(d, "abertura.tmp");
-        try {
-            try (InputStream in = c.getContentResolver().openInputStream(u); FileOutputStream o = new FileOutputStream(tmp)) {
-                byte[] t = new byte[65536];
-                int k;
-                while ((k = in.read(t)) != -1) o.write(t, 0, k);
+    /** Ícone redondo em vidro, igual aos botões da dock/Configurações. */
+    static class Ico extends View {
+        final int type, col;
+        final float den;
+        final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+        Ico(Context c, int type, int col, float den) {
+            super(c);
+            this.type = type; this.col = col; this.den = den;
+            setElevation(5 * den);
+            setOutlineProvider(new ViewOutlineProvider() {
+                @Override public void getOutline(View v, Outline o) {
+                    float r = Math.min(v.getWidth(), v.getHeight()) / 2f - 5 * Ico.this.den;
+                    float cx = v.getWidth() / 2f, cy = v.getHeight() / 2f;
+                    o.setOval((int) (cx - r), (int) (cy - r), (int) (cx + r), (int) (cy + r));
+                }
+            });
+        }
+
+        @Override protected void onDraw(Canvas c) {
+            float w = getWidth(), h = getHeight(), cx = w / 2, cy = h / 2;
+            float r = Math.min(w, h) / 2f - 5 * den;
+            p.setStyle(Paint.Style.FILL);
+            p.setShader(new LinearGradient(0, cy - r, 0, cy + r, MenuView.mix(col, Color.WHITE, .35f),
+                    MenuView.mix(col, Color.BLACK, .18f), Shader.TileMode.CLAMP));
+            c.drawCircle(cx, cy, r, p);
+            p.setShader(new LinearGradient(0, cy - r, 0, cy, 0xAAFFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP));
+            c.drawOval(new RectF(cx - r * .72f, cy - r * .94f, cx + r * .72f, cy - r * .05f), p);
+            p.setShader(null);
+            p.setStyle(Paint.Style.STROKE);
+            p.setStrokeWidth(1.2f * den);
+            p.setColor(0xCCFFFFFF);
+            c.drawCircle(cx, cy, r - .6f * den, p);
+            icone(c, cx, cy, r * .5f);
+        }
+
+        void icone(Canvas c, float x, float y, float r) {
+            if (type < 100) { MenuView.Icons.draw(c, type, x, y, r, Color.WHITE, p); return; }
+            p.setShader(null);
+            p.setColor(Color.WHITE);
+            p.setStrokeCap(Paint.Cap.ROUND);
+            p.setStrokeJoin(Paint.Join.ROUND);
+            p.setStyle(Paint.Style.STROKE);
+            p.setStrokeWidth(r * .17f);
+            Path q = new Path();
+            switch (type) {
+                case IC_IMG:
+                    c.drawRoundRect(new RectF(x - .85f * r, y - .7f * r, x + .85f * r, y + .7f * r), r * .2f, r * .2f, p);
+                    q.moveTo(x - .6f * r, y + .45f * r);
+                    q.lineTo(x - .15f * r, y - .05f * r);
+                    q.lineTo(x + .2f * r, y + .35f * r);
+                    q.lineTo(x + .4f * r, y + .15f * r);
+                    q.lineTo(x + .7f * r, y + .45f * r);
+                    c.drawPath(q, p);
+                    p.setStyle(Paint.Style.FILL);
+                    c.drawCircle(x + .4f * r, y - .3f * r, r * .14f, p);
+                    break;
+                case IC_BTN:
+                    c.drawCircle(x, y, r * .85f, p);
+                    p.setStyle(Paint.Style.FILL);
+                    c.drawCircle(x, y, r * .3f, p);
+                    break;
+                case IC_INFO:
+                    c.drawCircle(x, y, r * .88f, p);
+                    c.drawLine(x, y - .05f * r, x, y + .5f * r, p);
+                    p.setStyle(Paint.Style.FILL);
+                    c.drawCircle(x, y - .42f * r, r * .11f, p);
+                    break;
+                case IC_TRASH:
+                    c.drawLine(x - .8f * r, y - .5f * r, x + .8f * r, y - .5f * r, p);
+                    q.moveTo(x - .3f * r, y - .5f * r);
+                    q.lineTo(x - .3f * r, y - .85f * r);
+                    q.lineTo(x + .3f * r, y - .85f * r);
+                    q.lineTo(x + .3f * r, y - .5f * r);
+                    c.drawPath(q, p);
+                    q.reset();
+                    q.moveTo(x - .6f * r, y - .35f * r);
+                    q.lineTo(x - .5f * r, y + .85f * r);
+                    q.lineTo(x + .5f * r, y + .85f * r);
+                    q.lineTo(x + .6f * r, y - .35f * r);
+                    c.drawPath(q, p);
+                    c.drawLine(x - .2f * r, y - .05f * r, x - .2f * r, y + .6f * r, p);
+                    c.drawLine(x + .2f * r, y - .05f * r, x + .2f * r, y + .6f * r, p);
+                    break;
+                default:
+                    break;
             }
-            String ext = extDe(tmp, nomeDe(c, u));
-            apagarAberturas(c);
-            File dest = new File(d, "abertura." + ext);
-            if (!tmp.renameTo(dest)) { Pastas.copiar(tmp, dest); tmp.delete(); }
-            String aviso = "";
-            if (tipo(dest).equals("video")) {
-                // só um aviso: a validação nunca recusa o arquivo (quem decide é o player, na hora de tocar)
-                try {
-                    MediaMetadataRetriever r = new MediaMetadataRetriever();
-                    r.setDataSource(dest.getAbsolutePath());
-                    String ms = r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION);
-                    r.release();
-                    if (ms != null && Long.parseLong(ms) > 10500) aviso = " (só os primeiros 10 s serão exibidos)";
-                } catch (Throwable t) { }
-            }
-            return "Abertura definida" + aviso;
-        } catch (Throwable t) {
-            tmp.delete();
-            return "Não consegui importar a abertura";
         }
     }
 
-    // ================= interface =================
-    static void show(final MainActivity a) {
-        final MenuView mv = a.mv;
+    static LinearLayout caixa(MenuView mv, Context a, String titulo) {
         LinearLayout box = new LinearLayout(a);
         box.setOrientation(LinearLayout.VERTICAL);
-        TextView title = mv.label("Personalizar", 18, 0xFF1B1F27, true);
-        title.setPadding(mv.dp(4), 0, 0, mv.dp(10));
-        box.addView(title);
-        LinearLayout l = new LinearLayout(a);
-        l.setOrientation(LinearLayout.VERTICAL);
-        final Dialog[] dd = new Dialog[1];
+        box.setPadding(mv.dp(16), mv.dp(16), mv.dp(16), mv.dp(10));
+        box.setBackground(mv.glass(mv.dp(26)));
+        TextView t = mv.label(titulo, 18, 0xFF1B1F27, true);
+        t.setPadding(mv.dp(6), 0, 0, mv.dp(12));
+        box.addView(t);
+        return box;
+    }
 
-        l.addView(item(mv, "Importar botões (todos)", 0xFF7E57C2, () -> {
-            dd[0].dismiss();
+    static Dialog janela(MenuView mv, Context a, LinearLayout box) {
+        Dialog d = new Dialog(a);
+        d.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        d.setContentView(box);
+        Window w = d.getWindow();
+        if (w != null) {
+            w.setBackgroundDrawable(new ColorDrawable(0));
+            int sw = a.getResources().getDisplayMetrics().widthPixels;
+            w.setLayout(Math.min(mv.dp(340), sw - mv.dp(32)), -2);
+        }
+        d.setCanceledOnTouchOutside(true);
+        return d;
+    }
+
+    static LinearLayout linha(MenuView mv, Context a, int type, int cor, String texto, final Runnable r) {
+        LinearLayout row = new LinearLayout(a);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(mv.dp(8), mv.dp(4), mv.dp(14), mv.dp(4));
+        GradientDrawable rg = new GradientDrawable();
+        rg.setColor(0x99FFFFFF);
+        rg.setCornerRadius(mv.dp(18));
+        rg.setStroke(mv.dp(1), 0xCCFFFFFF);
+        row.setBackground(rg);
+        row.addView(new Ico(a, type, cor, mv.den), new LinearLayout.LayoutParams(mv.dp(52), mv.dp(52)));
+        TextView t = new TextView(a);
+        t.setText(texto);
+        t.setTextColor(0xFF1B1F27);
+        t.setTextSize(15);
+        t.setTypeface(Typeface.DEFAULT_BOLD);
+        LinearLayout.LayoutParams tl = new LinearLayout.LayoutParams(0, -2, 1f);
+        tl.leftMargin = mv.dp(6);
+        row.addView(t, tl);
+        TextView ar = new TextView(a);
+        ar.setText("›");
+        ar.setTextColor(0xFF8A93A3);
+        ar.setTextSize(22);
+        row.addView(ar);
+        row.setOnClickListener(v -> r.run());
+        LinearLayout.LayoutParams rl = new LinearLayout.LayoutParams(-1, -2);
+        rl.bottomMargin = mv.dp(8);
+        row.setLayoutParams(rl);
+        return row;
+    }
+
+    static void show(final MainActivity a) {
+        final MenuView mv = a.mv;
+        LinearLayout box = caixa(mv, a, "Personalizar");
+        final Dialog d = janela(mv, a, box);
+
+        box.addView(linha(mv, a, MenuView.Icons.PAD, 0xFF7E57C2, "Importar botões (todos)", () -> {
+            d.dismiss();
             a.pickFiles(4, true, "image/*", "application/zip");
         }));
-        l.addView(item(mv, "Escolher um botão", 0xFF1E6BE6, () -> {
-            dd[0].dismiss();
+        box.addView(linha(mv, a, IC_BTN, 0xFF1E6BE6, "Escolher um botão", () -> {
+            d.dismiss();
             escolherBotao(a);
         }));
-        l.addView(item(mv, "Nomes dos arquivos", 0xFF3A3C42, () -> {
-            new AlertDialog.Builder(a).setTitle("Nomes dos arquivos")
-                    .setMessage("PNG, JPG ou WEBP (ou um .zip com todos). O nome do arquivo diz qual botão é:\n\n"
-                            + "A, B, L, R, START, SELECT, FF, MENU, TA (turbo A), TB (turbo B)\n"
-                            + "LA (L+A), LB (L+B), RA (R+A), RB (R+B), AB (A+B)\n"
-                            + "DPAD (cruzeta), ANALOG (base do analógico), KNOB (bolinha do analógico)\n\n"
-                            + "Para a imagem do botão apertado, acrescente _on: A_on.png, START_on.png...\n"
-                            + "Botões sem imagem continuam com o desenho padrão.")
-                    .setPositiveButton("OK", null).show();
+        box.addView(linha(mv, a, IC_INFO, 0xFF3A3C42, "Nomes dos arquivos", () -> {
+            d.dismiss();
+            nomesArquivos(a);
         }));
-        l.addView(item(mv, "Fundo do app (imagem)", 0xFF2EAD4B, () -> {
-            dd[0].dismiss();
+        box.addView(linha(mv, a, IC_IMG, 0xFF2EAD4B, "Fundo do app (imagem)", () -> {
+            d.dismiss();
             a.pickFiles(5, false, "image/*");
         }));
-        l.addView(item(mv, "Abertura do app (PNG, GIF ou vídeo até 10 s)", 0xFFFFA000, () -> {
-            dd[0].dismiss();
-            a.pickFiles(6, false, "image/*", "video/*");
+        box.addView(linha(mv, a, IC_TRASH, 0xFFE53935, "Remover...", () -> {
+            d.dismiss();
+            remover(a);
         }));
-        l.addView(item(mv, "Testar abertura", 0xFF1E6BE6, () -> {
-            dd[0].dismiss();
-            a.mostrarAbertura(true);
-        }));
-        l.addView(item(mv, "Remover...", 0xFFE53935, () -> {
-            new AlertDialog.Builder(a).setTitle("Remover")
-                    .setItems(new String[]{"Botões personalizados", "Fundo do app", "Abertura"}, (di, w) -> {
-                        if (w == 0) { apagarBotoes(a); if (a.gv != null) a.gv.loadSkin(a); }
-                        else if (w == 1) { File f = fundo(a); if (f != null) f.delete(); a.aplicarFundo(); }
-                        else apagarAberturas(a);
-                        a.toast("Removido");
-                    }).show();
-        }));
-        ScrollView sv = new ScrollView(a);
-        sv.setVerticalScrollBarEnabled(false);
-        sv.addView(l);
-        int maxH = (int) (a.getResources().getDisplayMetrics().heightPixels * .62f);
-        box.addView(sv, new LinearLayout.LayoutParams(-1, maxH));
-        TextView fechar = mv.btn("Fechar", 0xFFE3E7EE, 0xFF1B1F27);
-        LinearLayout.LayoutParams fl = new LinearLayout.LayoutParams(-1, -2);
-        fl.topMargin = mv.dp(8);
-        box.addView(fechar, fl);
-        final Dialog d = mv.glassDialog(box);
-        dd[0] = d;
-        d.setCanceledOnTouchOutside(true);
-        fechar.setOnClickListener(v -> d.dismiss());
         d.show();
     }
 
-    static TextView item(MenuView mv, String t, int cor, final Runnable r) {
-        TextView b = mv.btn(t, cor, 0xFFFFFFFF);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
-        lp.bottomMargin = mv.dp(6);
-        b.setLayoutParams(lp);
-        b.setOnClickListener(v -> r.run());
-        return b;
+    static void nomesArquivos(MainActivity a) {
+        MenuView mv = a.mv;
+        LinearLayout box = caixa(mv, a, "Nomes dos arquivos");
+        TextView m = mv.label("PNG, JPG ou WEBP (ou um .zip com todos). O nome do arquivo diz qual botão é:\n\n"
+                + "A, B, L, R, START, SELECT, FF, MENU, TA (turbo A), TB (turbo B)\n"
+                + "LA (L+A), LB (L+B), RA (R+A), RB (R+B), AB (A+B)\n"
+                + "DPAD (cruzeta), ANALOG (base do analógico), KNOB (bolinha do analógico)\n\n"
+                + "Para a imagem do botão apertado, acrescente _on: A_on.png, START_on.png...\n"
+                + "Botões sem imagem continuam com o desenho padrão.", 13, 0xFF4A5363, false);
+        ScrollView sv = new ScrollView(a);
+        sv.setVerticalScrollBarEnabled(false);
+        sv.addView(m);
+        int maxH = (int) (a.getResources().getDisplayMetrics().heightPixels * .55f);
+        box.addView(sv, new LinearLayout.LayoutParams(-1, -2));
+        final Dialog d = janela(mv, a, box);
+        TextView ok = mv.btn("OK", 0xFFE3E7EE, 0xFF1B1F27);
+        LinearLayout.LayoutParams fl = new LinearLayout.LayoutParams(-1, -2);
+        fl.topMargin = mv.dp(10);
+        box.addView(ok, fl);
+        ok.setOnClickListener(v -> d.dismiss());
+        d.show();
+    }
+
+    static void remover(final MainActivity a) {
+        lista(a, "Remover", new String[]{"Botões personalizados", "Fundo do app"}, w -> {
+            if (w == 0) { apagarBotoes(a); if (a.gv != null) a.gv.loadSkin(a); }
+            else { File f = fundo(a); if (f != null) f.delete(); a.aplicarFundo(); }
+            a.toast("Removido");
+        });
     }
 
     static void escolherBotao(final MainActivity a) {
-        new AlertDialog.Builder(a).setTitle("Qual botão?").setItems(NOMES, (d, w) -> {
+        lista(a, "Qual botão?", NOMES, w -> {
             a.pendingKey = TODAS[w];
             a.pickFiles(7, false, "image/*");
-        }).show();
+        });
+    }
+
+    /** Lista de opções em janela de vidro (mesmo estilo das outras). */
+    static void lista(MainActivity a, String titulo, String[] itens, final Pick cb) {
+        MenuView mv = a.mv;
+        LinearLayout box = caixa(mv, a, titulo);
+        final Dialog d = janela(mv, a, box);
+        LinearLayout l = new LinearLayout(a);
+        l.setOrientation(LinearLayout.VERTICAL);
+        for (int i = 0; i < itens.length; i++) {
+            final int k = i;
+            TextView t = new TextView(a);
+            t.setText(itens[i]);
+            t.setTextColor(0xFF1B1F27);
+            t.setTextSize(15);
+            t.setTypeface(Typeface.DEFAULT_BOLD);
+            t.setPadding(mv.dp(16), mv.dp(13), mv.dp(16), mv.dp(13));
+            GradientDrawable g = new GradientDrawable();
+            g.setColor(0x99FFFFFF);
+            g.setCornerRadius(mv.dp(16));
+            g.setStroke(mv.dp(1), 0xCCFFFFFF);
+            t.setBackground(g);
+            t.setOnClickListener(v -> { d.dismiss(); cb.on(k); });
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
+            lp.bottomMargin = mv.dp(6);
+            l.addView(t, lp);
+        }
+        ScrollView sv = new ScrollView(a);
+        sv.setVerticalScrollBarEnabled(false);
+        sv.addView(l);
+        int maxH = (int) (a.getResources().getDisplayMetrics().heightPixels * .6f);
+        box.addView(sv, new LinearLayout.LayoutParams(-1, itens.length > 6 ? maxH : -2));
+        d.show();
     }
 }

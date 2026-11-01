@@ -141,7 +141,6 @@ public class MainActivity extends Activity {
             else mv.setGames(new ArrayList<MenuView.Game>(), null, false);
             ensureFolder();
             aplicarFundo();
-            mostrarAbertura(false);
         } catch (Throwable t) {
             showError(trace(t));
         }
@@ -173,7 +172,7 @@ public class MainActivity extends Activity {
                 if (req == 4) msg = Personalizar.importarBotoes(this, us);
                 else if (req == 7) msg = Personalizar.importarUmBotao(this, us.get(0), key);
                 else if (req == 5) msg = Personalizar.importarFundo(this, us.get(0));
-                else msg = Personalizar.importarAbertura(this, us.get(0));
+                else msg = "Não foi possível importar";
             } catch (Throwable t) {
                 msg = "Não foi possível importar";
             }
@@ -196,16 +195,6 @@ public class MainActivity extends Activity {
         mv.setCustomBg(b);
     }
 
-    /** Abertura do app (png, gif ou vídeo de até 10 s). force = teste pelo menu. */
-    void mostrarAbertura(boolean force) {
-        if (root == null || (introShown && !force)) return;
-        introShown = true;
-        try {
-            File f = Personalizar.abertura(this);
-            if (f == null) { if (force) toast("Nenhuma abertura definida"); return; }
-            root.addView(new Abertura(this, f), new FrameLayout.LayoutParams(-1, -1));
-        } catch (Throwable t) { }
-    }
 
     void showError(String text) {
         built = false;

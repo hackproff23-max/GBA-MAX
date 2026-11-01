@@ -369,13 +369,7 @@ public class MenuView extends FrameLayout {
             row.setOnClickListener(v -> {
                 d.dismiss();
                 if (k == 4) {
-                    new AlertDialog.Builder(c).setTitle("Avançado")
-                            .setItems(new String[]{"Selecionar pasta de ROMs", "Atualizar lista",
-                                    "Personalizar (botões, fundo, abertura)"}, (d2, w) -> {
-                                if (w == 0) host.pickDir();
-                                else if (w == 1) host.refresh();
-                                else if (c instanceof MainActivity) Personalizar.show((MainActivity) c);
-                            }).show();
+                    if (c instanceof MainActivity) Personalizar.show((MainActivity) c);
                 } else if (k == 0) new VideoMenu(MenuView.this).show();
                 else abrirConfig(k); // 1 áudio, 2 controle, 3 saves
             });
