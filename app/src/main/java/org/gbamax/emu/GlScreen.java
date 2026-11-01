@@ -137,6 +137,13 @@ public class GlScreen extends GLSurfaceView implements GLSurfaceView.Renderer {
         fb.put(v).position(0);
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, vbo);
         GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, v.length * 4, fb, GLES30.GL_STATIC_DRAW);
+        GLES30.glGenBuffers(1, a, 0);
+        vbo2 = a[0];
+        float[] v2 = {-1, -1, 0, 1, 1, -1, 0, 1, -1, 1, 0, 1, 1, 1, 0, 1};
+        FloatBuffer fb2 = ByteBuffer.allocateDirect(v2.length * 4).order(ByteOrder.nativeOrder()).asFloatBuffer();
+        fb2.put(v2).position(0);
+        GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, vbo2);
+        GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, v2.length * 4, fb2, GLES30.GL_STATIC_DRAW);
         GLES30.glGenTextures(1, a, 0);
         src.id = a[0];
         src.w = 240;
@@ -173,6 +180,10 @@ public class GlScreen extends GLSurfaceView implements GLSurfaceView.Renderer {
         GLES30.glVertexAttribPointer(1, 4, GLES30.GL_FLOAT, false, 16, 0);
         GLES30.glDisableVertexAttribArray(2);
         GLES30.glVertexAttrib4f(2, 1f, 1f, 1f, 1f);
+        GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, vbo2);
+        GLES30.glEnableVertexAttribArray(3);
+        GLES30.glVertexAttribPointer(3, 4, GLES30.GL_FLOAT, false, 16, 0);
+        GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, vbo);
 
         Tex in = src;
         List<Pass> ch = chain;
@@ -298,6 +309,7 @@ public class GlScreen extends GLSurfaceView implements GLSurfaceView.Renderer {
         size(p, "OriginalSize", src.w, src.h);
 
         int[] un = {0};
+        ShaderSources.extra(this, p, in, ow, oh, un, frameCount);
         tex(p, "Texture", in, p.linear, p.wrap, un);
         tex(p, "Source", in, p.linear, p.wrap, un);
         tex(p, "OrigTexture", src, p.linear, p.wrap, un);
@@ -460,6 +472,8 @@ public class GlScreen extends GLSurfaceView implements GLSurfaceView.Renderer {
 
     Pass makePass(File sf, Map<String, Float> pr) throws IOException {
         String s = readExpanded(sf, 0);
+        File par = ShaderSources.partner(sf);
+        String sPair = par != null ? readExpanded(par, 0) : null;
         Matcher m = PARAM.matcher(s);
         while (m.find()) if (!pr.containsKey(m.group(1))) pr.put(m.group(1), toF(m.group(2), 0f));
         boolean slang = sf.getName().toLowerCase().endsWith(".slang") || s.contains("#pragma stage");
@@ -469,6 +483,9 @@ public class GlScreen extends GLSurfaceView implements GLSurfaceView.Renderer {
             vs = x[0];
             fs = x[1];
         } else {
+            String[] x = ShaderSources.glsl(sf, s, sPair);
+            vs = x[0];
+            fs = x[1];
         }
         Pass p = new Pass();
         try {
@@ -614,6 +631,10 @@ public class GlScreen extends GLSurfaceView implements GLSurfaceView.Renderer {
         GLES30.glBindAttribLocation(p, 0, "Position");
         GLES30.glBindAttribLocation(p, 1, "TexCoord");
         GLES30.glBindAttribLocation(p, 2, "COLOR");
+        for (String n : new String[]{"a_position", "aPosition", "position", "inPosition", "vPosition", "Vertex", "a_vertex", "a_Position", "Pos"})
+            GLES30.glBindAttribLocation(p, 3, n);
+        for (String n : new String[]{"a_texCoord", "a_texcoord", "aTexCoord", "texCoord", "texcoord", "inTexCoord", "a_uv", "uv", "a_TexCoord", "TexCoord0"})
+            GLES30.glBindAttribLocation(p, 1, n);
         GLES30.glLinkProgram(p);
         GLES30.glDeleteShader(v);
         GLES30.glDeleteShader(f);

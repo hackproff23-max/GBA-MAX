@@ -83,6 +83,22 @@ public class MenuView extends FrameLayout {
     }
 
     final LruCache<String, Bitmap> cache = new LruCache<>(60);
+    final LruCache<String, Bitmap> blur = new LruCache<>(60);
+
+    Bitmap blurOf(String key, Bitmap src) {
+        Bitmap b = blur.get(key);
+        if (b != null) return b;
+        try {
+            int w = Math.max(4, src.getWidth() / 20), h = Math.max(4, src.getHeight() / 20);
+            Bitmap s1 = Bitmap.createScaledBitmap(src, w, h, true);
+            Bitmap s2 = Bitmap.createScaledBitmap(s1, w * 4, h * 4, true);
+            if (s1 != s2 && s1 != src) s1.recycle();
+            blur.put(key, s2);
+            return s2;
+        } catch (Throwable t) {
+            return src;
+        }
+    }
     final Set<String> busy = Collections.synchronizedSet(new HashSet<String>());
     final Set<String> failed = Collections.synchronizedSet(new HashSet<String>());
     final ExecutorService ex = Executors.newFixedThreadPool(2);
@@ -742,6 +758,29 @@ public class MenuView extends FrameLayout {
             c.save();
             c.clipPath(rr);
             fill.setStyle(Paint.Style.FILL);
+            if (bm != null) {
+                fill.setFilterBitmap(true);
+                Bitmap bl = blurOf(g.cover.toString(), bm);
+                float sb = Math.max(r.width() / bl.getWidth(), r.height() / bl.getHeight());
+                mx.setScale(sb, sb);
+                mx.postTranslate(r.left + (r.width() - bl.getWidth() * sb) / 2,
+                        r.top + (r.height() - bl.getHeight() * sb) / 2);
+                BitmapShader shb = new BitmapShader(bl, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP);
+                shb.setLocalMatrix(mx);
+                fill.setShader(shb);
+                c.drawRect(r, fill);
+                fill.setShader(null);
+                fill.setColor(0x33000000);
+                c.drawRect(r, fill);
+                float s = Math.min(r.width() / bm.getWidth(), r.height() / bm.getHeight());
+                float dw = bm.getWidth() * s, dh = bm.getHeight() * s;
+                mx.setScale(s, s);
+                mx.postTranslate(r.centerX() - dw / 2, r.centerY() - dh / 2);
+                BitmapShader sh = new BitmapShader(bm, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP);
+                sh.setLocalMatrix(mx);
+                fill.setShader(sh);
+                c.drawRect(r.centerX() - dw / 2, r.centerY() - dh / 2, r.centerX() + dw / 2, r.centerY() + dh / 2, fill);
+            } else {
                 int hh = (g.name.hashCode() & 0x7fffffff) % 360;
                 float[] hsv = {hh, .6f, .95f};
                 int c1 = Color.HSVToColor(hsv);
