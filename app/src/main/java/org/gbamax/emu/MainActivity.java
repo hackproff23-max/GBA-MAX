@@ -823,6 +823,8 @@ public class MainActivity extends Activity {
     void loop() {
         short[] ab = new short[8192];
         int frame = 0, shown = 0;
+        short[] ffb = new short[8192 * 8], ffo = new short[8192 * 8];
+        int ffn = 0;
         final long T = 16743000L; // ~59.73 fps
         while (run) {
             long t0 = System.nanoTime();
@@ -838,8 +840,19 @@ public class MainActivity extends Activity {
                 Native.input(gv.mask(frame));
                 Native.run();
                 int c = Native.audio(ab);
-                if (!f && c > 0) at.write(ab, 0, c);
+                if (c > 0) { if (!f) at.write(ab, 0, c); else if (ffn + c <= ffb.length) { System.arraycopy(ab, 0, ffb, ffn, c); ffn += c; } }
                 if (last && !skip) gl.requestRender();
+            }
+            if (ffn > 0) { /* avanço rápido: junta o áudio dos quadros em um só (som acelerado) */
+                int pr = ffn / 2 / n;
+                for (int j = 0; j < pr; j++) {
+                    int sl = 0, sr = 0;
+                    for (int q = 0; q < n; q++) { sl += ffb[(j * n + q) * 2]; sr += ffb[(j * n + q) * 2 + 1]; }
+                    ffo[j * 2] = (short) (sl / n);
+                    ffo[j * 2 + 1] = (short) (sr / n);
+                }
+                if (pr > 0) at.write(ffo, 0, pr * 2);
+                ffn = 0;
             }
             long r = T - (System.nanoTime() - t0);
             if (r > 0) LockSupport.parkNanos(r);

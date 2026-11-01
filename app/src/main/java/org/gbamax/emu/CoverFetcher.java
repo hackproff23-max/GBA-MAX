@@ -26,6 +26,7 @@ import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -35,16 +36,17 @@ import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
-// Identifica cada ROM (nome do arquivo + código do cabeçalho, que ROM hacks/mods mantêm do jogo base)
-// e baixa a capa do acervo libretro-thumbnails. Tudo fica em cache na pasta de capas.
+// Identifica cada ROM e baixa SÓ a capa dos jogos que você tem (acervo libretro-thumbnails).
+// Ordem, do mais leve ao mais pesado: cache -> nome exato da capa (sem baixar listas)
+// -> lista de nomes (só se precisar) -> código do cabeçalho (só se precisar).
 public class CoverFetcher {
     public interface Done { void onCover(MenuView.Game g, File f); }
     public interface Progress { void onProgress(int done, int total, String status); }
 
-    // bytes baixados (listas + capas) e cancelamento
+    // bytes baixados (capas e, só se precisar, listas) e cancelamento
     static final java.util.concurrent.atomic.AtomicLong BYTES = new java.util.concurrent.atomic.AtomicLong();
     volatile boolean cancel;
-    boolean offlineMode;
+    boolean offlineMode, listLoaded, codesLoaded;
 
     static final String SYS = "Nintendo - Game Boy Advance";
     static final String LIST_API = "https://api.github.com/repos/libretro-thumbnails/Nintendo_-_Game_Boy_Advance/git/trees/master?recursive=1";
@@ -73,15 +75,6 @@ public class CoverFetcher {
     public void run(List<MenuView.Game> games, Done cb, Progress pg, boolean offline) {
         int total = games.size();
         offlineMode = offline;
-        if (!offline) {
-            if (pg != null) pg.onProgress(0, total, "Preparando lista de capas...");
-            try {
-                loadList();
-                if (!cancel) loadCodes();
-            } catch (Throwable t) { }
-        } else {
-            try { loadList(); loadCodes(); } catch (Throwable t) { }
-        }
         int done = 0;
         for (MenuView.Game g : games) {
             if (cancel) return;
@@ -92,9 +85,18 @@ public class CoverFetcher {
                 File old = new File(dir, safe(g.name) + ".png"); // capas baixadas em versões antigas
                 if (f.length() > 500) { cb.onCover(g, f); continue; }
                 if (old.length() > 500) { cb.onCover(g, old); continue; }
-                if (offline || names.isEmpty()) continue;
-                String code = headerCode(g.uri);
-                String hit = identify(g.name, code);
+                if (offline) continue;
+                // 1) tenta o nome exato da capa: não baixa nenhuma lista
+                boolean ok = false;
+                for (String c : candidatos(g.name)) {
+                    if (cancel) return;
+                    if (download(c, f)) { cb.onCover(g, f); ok = true; break; }
+                }
+                if (ok) continue;
+                // 2) não achou: identifica pela lista de nomes / código do cabeçalho (carregados só agora)
+                ensureList();
+                if (names.isEmpty()) continue;
+                String hit = identify(g.name, headerCode(g.uri));
                 if (hit == null) continue;
                 if (download(hit, f)) cb.onCover(g, f);
             } catch (Throwable t) {
@@ -102,6 +104,34 @@ public class CoverFetcher {
         }
         if (pg != null) pg.onProgress(total, total, "Concluído");
     }
+
+    void ensureList() {
+        if (listLoaded || offlineMode) return;
+        listLoaded = true;
+        try { loadList(); } catch (Throwable t) { }
+    }
+
+    void ensureCodes() {
+        if (codesLoaded || offlineMode) return;
+        codesLoaded = true;
+        try { loadCodes(); } catch (Throwable t) { }
+    }
+
+    /** Nomes prováveis da capa deste jogo (o acervo troca & * / : < > ? \ | " por _). */
+    static List<String> candidatos(String fileName) {
+        String base = clean(fileName);
+        Set<String> r = new LinkedHashSet<>();
+        if (base.isEmpty()) return new ArrayList<>(r);
+        r.add(san(base));
+        String s = strip(base);
+        if (!s.isEmpty()) {
+            for (String reg : new String[]{" (USA)", " (Europe)", " (USA, Europe)", " (World)", " (Japan)"})
+                r.add(san(s + reg));
+        }
+        return new ArrayList<>(r);
+    }
+
+    static String san(String n) { return n.replaceAll("[&*/:<>?\\\\|\"]", "_"); }
 
     // ---------------- identificação ----------------
     String identify(String fileName, String code) {
@@ -112,6 +142,7 @@ public class CoverFetcher {
         if (l != null) return best(l);
         // 2) código do cabeçalho (ROM hack/mod usa o código do jogo base)
         if (code != null) {
+            ensureCodes();
             String n = codes.get(code);
             if (n != null) {
                 String h = byFull.get(key(n));
@@ -221,7 +252,7 @@ public class CoverFetcher {
         return c.matches("[A-Z0-9]{4}") ? c : null;
     }
 
-    // ---------------- listas (com cache) ----------------
+    // ---------------- listas (com cache; só baixadas se alguma capa não for achada pelo nome) ----------------
     void loadList() throws IOException {
         File f = new File(dir, "_list.txt");
         if (!offlineMode && (!f.exists() || System.currentTimeMillis() - f.lastModified() > MAX_AGE)) {
