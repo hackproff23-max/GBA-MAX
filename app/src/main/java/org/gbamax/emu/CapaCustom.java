@@ -91,7 +91,7 @@ final class CapaCustom {
                 if (src != null) {
                     // limita o maior lado a 768 px mantendo a proporção (a grade corta o excesso no centro)
                     float k = Math.min(1f, 768f / Math.max(src.getWidth(), src.getHeight()));
-                    int w = Math.max(1, Math.round(src.getWidth() * k)), h = Math.max(1, Math.round(src.getHeight() * k));
+                    int w = 256, h = 256;
                     Bitmap dst = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
                     Canvas cv = new Canvas(dst);
                     cv.drawColor(Color.WHITE);

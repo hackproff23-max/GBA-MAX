@@ -761,7 +761,7 @@ public class MenuView extends FrameLayout {
             fill.setStyle(Paint.Style.FILL);
             if (bm != null) {
                 fill.setFilterBitmap(true);
-                Bitmap bl = blurOf(g.cover.toString(), bm);
+                Bitmap bl = bm;
                 float sb = Math.max(r.width() / bl.getWidth(), r.height() / bl.getHeight());
                 mx.setScale(sb, sb);
                 mx.postTranslate(r.left + (r.width() - bl.getWidth() * sb) / 2,
@@ -773,7 +773,7 @@ public class MenuView extends FrameLayout {
                 fill.setShader(null);
                 fill.setColor(0x33000000);
                 c.drawRect(r, fill);
-                float ar = bm.getWidth() / (float) bm.getHeight(); float s = (ar > 0.88f && ar < 1.14f) ? Math.max(r.width() / bm.getWidth(), r.height() / bm.getHeight()) : Math.min(r.width() / bm.getWidth(), r.height() / bm.getHeight());
+                float s = Math.max(r.width() / bm.getWidth(), r.height() / bm.getHeight());
                 float dw = bm.getWidth() * s, dh = bm.getHeight() * s;
                 mx.setScale(s, s);
                 mx.postTranslate(r.centerX() - dw / 2, r.centerY() - dh / 2);
