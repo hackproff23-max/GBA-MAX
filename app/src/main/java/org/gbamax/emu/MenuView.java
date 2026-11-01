@@ -761,7 +761,7 @@ public class MenuView extends FrameLayout {
             fill.setStyle(Paint.Style.FILL);
             if (bm != null) {
                 fill.setFilterBitmap(true);
-                Bitmap bl = blurOf(g.cover.toString(), bm);
+                Bitmap bl = bm;
                 float sb = Math.max(r.width() / bl.getWidth(), r.height() / bl.getHeight());
                 mx.setScale(sb, sb);
                 mx.postTranslate(r.left + (r.width() - bl.getWidth() * sb) / 2,
@@ -773,7 +773,7 @@ public class MenuView extends FrameLayout {
                 fill.setShader(null);
                 fill.setColor(0x33000000);
                 c.drawRect(r, fill);
-                float s = Math.min(r.width() / bm.getWidth(), r.height() / bm.getHeight());
+                float s = Math.max(r.width() / bm.getWidth(), r.height() / bm.getHeight());
                 float dw = bm.getWidth() * s, dh = bm.getHeight() * s;
                 mx.setScale(s, s);
                 mx.postTranslate(r.centerX() - dw / 2, r.centerY() - dh / 2);
@@ -810,9 +810,9 @@ public class MenuView extends FrameLayout {
                 sl.draw(c);
                 c.restore();
             }
-            if (bm == null) {
+            {
             fill.setShader(new LinearGradient(0, r.top, 0, r.top + r.height() * .5f,
-                    0x66FFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP));
+                    (bm == null ? 0x66FFFFFF : 0x26FFFFFF), 0x00FFFFFF, Shader.TileMode.CLAMP));
             c.drawRect(r.left, r.top, r.right, r.top + r.height() * .5f, fill);
             // efeito de vidro por cima: véu fosco, brilho diagonal e borda interna
             fill.setShader(null);
