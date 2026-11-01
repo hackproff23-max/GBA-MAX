@@ -9,7 +9,7 @@ import java.util.Arrays;
 /** Cores editáveis do app (Avançado > Personalizar > Cores do app). */
 final class Tema {
     static final int VIDRO_TOPO = 0, VIDRO_BASE = 1, PLACA_TOPO = 2, PLACA_BASE = 3, TEXTO = 4, TEXTO2 = 5, LINHA = 6,
-            FUNDO0 = 7, SIMB0 = 13, N = 19;
+            FUNDO0 = 7, SIMB0 = 13, CONTORNO = 19, N = 20;
 
     static final String[] NOME = {
             "Vidro: cor de cima (barra, dock, janelas)", "Vidro: cor de baixo",
@@ -18,21 +18,22 @@ final class Tema {
             "Início: fundo do ícone", "Tela: fundo do ícone", "Áudio: fundo do ícone",
             "Controle: fundo do ícone", "Saves: fundo do ícone", "Configurações: fundo do ícone",
             "Início: símbolo", "Tela: símbolo", "Áudio: símbolo",
-            "Controle: símbolo", "Saves: símbolo", "Configurações: símbolo"};
+            "Controle: símbolo", "Saves: símbolo", "Configurações: símbolo", "Contorno das janelas: cor"};
 
     static final int[] PADRAO = {
             0xF5FFFFFF, 0xE6E4EAF3, 0xFAFFFFFF, 0xF2E6ECF5, 0xFF1B1F27, 0xFF8A93A3, 0x99FFFFFF,
             0xFFFFFFFF, 0xFF1E6BE6, 0xFFFFA000, 0xFF7E57C2, 0xFF2EAD4B, 0xFF3A3C42,
-            0xFF111111, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF};
+            0xFF111111, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF};
 
     static final int[] cur = PADRAO.clone();
+    static float grossura = 1.5f;
     static boolean introJa; // a abertura toca só uma vez por abertura do app (não ao reaplicar cores)
 
     static SharedPreferences sp(Context c) { return c.getSharedPreferences("tema", 0); }
 
     static void load(Context c) {
         SharedPreferences s = sp(c);
-        for (int i = 0; i < N; i++) cur[i] = s.getInt("c" + i, PADRAO[i]);
+        for (int i = 0; i < N; i++) cur[i] = s.getInt("c" + i, PADRAO[i]); grossura = s.getFloat("grossura", 1.5f);
     }
 
     static int get(int i) { return cur[i]; }
@@ -66,9 +67,10 @@ final class Tema {
     }
 
     static void reset(Context c, int i) { set(c, i, PADRAO[i]); }
+    static void setGrossura(Context c, float v) { grossura = v; sp(c).edit().putFloat("grossura", v).apply(); }
 
     static void resetAll(Context c) {
         System.arraycopy(PADRAO, 0, cur, 0, N);
-        sp(c).edit().clear().apply();
+        grossura = 1.5f; sp(c).edit().clear().apply();
     }
 }

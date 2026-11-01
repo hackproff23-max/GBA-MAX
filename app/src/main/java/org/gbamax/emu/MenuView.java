@@ -111,7 +111,7 @@ public class MenuView extends FrameLayout {
         GradientDrawable g = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
                 new int[]{Tema.get(Tema.VIDRO_TOPO), Tema.get(Tema.VIDRO_BASE)});
         g.setCornerRadius(rad);
-        g.setStroke(dp(1.5f), 0xFFFFFFFF);
+        g.setStroke(dp(Tema.grossura), Tema.get(Tema.CONTORNO));
         return g;
     }
 
@@ -362,7 +362,7 @@ public class MenuView extends FrameLayout {
             GradientDrawable rg = new GradientDrawable();
             rg.setColor(Tema.get(Tema.LINHA));
             rg.setCornerRadius(dp(18));
-            rg.setStroke(dp(1), 0xCCFFFFFF);
+            rg.setStroke(dp(Tema.grossura), Tema.get(Tema.CONTORNO));
             row.setBackground(rg);
             row.addView(new DockBtn(c, ty[i], bg[i], Tema.glyph(i + 1), false), new LinearLayout.LayoutParams(dp(52), dp(52)));
             TextView t = new TextView(c);
@@ -651,7 +651,7 @@ public class MenuView extends FrameLayout {
             GradientDrawable g = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
                     new int[]{Tema.get(Tema.PLACA_TOPO), Tema.get(Tema.PLACA_BASE)});
             g.setCornerRadius(dp(14));
-            g.setStroke(dp(1), 0xCCFFFFFF);
+            g.setStroke(dp(Tema.grossura), Tema.get(Tema.CONTORNO));
             plate.setBackground(g);
             plate.setElevation(dp(4));
 

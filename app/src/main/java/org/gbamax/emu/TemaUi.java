@@ -45,6 +45,7 @@ final class TemaUi {
             rl.bottomMargin = mv.dp(6);
             l.addView(row, rl);
         }
+        final LinearLayout gr = new LinearLayout(a); gr.setOrientation(LinearLayout.HORIZONTAL); gr.setGravity(Gravity.CENTER_VERTICAL); gr.setPadding(mv.dp(12), mv.dp(12), mv.dp(12), mv.dp(12)); GradientDrawable gg = new GradientDrawable(); gg.setColor(Tema.get(Tema.LINHA)); gg.setCornerRadius(mv.dp(16)); gg.setStroke(mv.dp(1), 0xCCFFFFFF); gr.setBackground(gg); final TextView gt = new TextView(a); gt.setText("Contorno das janelas: grossura (" + fmt(Tema.grossura) + ")"); gt.setTextColor(Tema.get(Tema.TEXTO)); gt.setTextSize(14); gt.setTypeface(android.graphics.Typeface.DEFAULT_BOLD); gr.addView(gt, new LinearLayout.LayoutParams(-1, -2)); gr.setOnClickListener(v -> grossura(a, () -> gt.setText("Contorno das janelas: grossura (" + fmt(Tema.grossura) + ")"))); LinearLayout.LayoutParams grl = new LinearLayout.LayoutParams(-1, -2); grl.bottomMargin = mv.dp(6); l.addView(gr, grl);
         ScrollView sv = new ScrollView(a);
         sv.setVerticalScrollBarEnabled(false);
         sv.addView(l);
@@ -126,16 +127,11 @@ final class TemaUi {
 
         cancel.setOnClickListener(v -> d.dismiss());
         pad.setOnClickListener(v -> {
-            if (!Tema.legivel(idx, Tema.PADRAO[idx])) { a.toast("Essa cor deixaria o texto ilegível"); return; }
             d.dismiss();
             Tema.reset(a, idx);
             if (depois == null) a.recreate(); else { pendente = true; depois.run(); }
         });
         ok.setOnClickListener(v -> {
-            if (!Tema.legivel(idx, cor[0])) {
-                a.toast("Letra e fundo ficariam parecidos demais e você não conseguiria ler. Escolha outra cor.");
-                return;
-            }
             d.dismiss();
             Tema.set(a, idx, cor[0]);
             if (depois == null) a.recreate(); else { pendente = true; depois.run(); }
@@ -144,6 +140,30 @@ final class TemaUi {
     }
 
     interface Val { void on(int v); }
+    static String fmt(float x) { return String.format(java.util.Locale.getDefault(), "%.1f dp", x); }
+    static void grossura(final MainActivity a, final Runnable depois) {
+        final MenuView mv = a.mv;
+        LinearLayout box = Personalizar.caixa(mv, a, "Grossura do contorno");
+        final Dialog d = Personalizar.janela(mv, a, box);
+        final float[] g = {Tema.grossura};
+        final TextView val = mv.label(fmt(g[0]), 14, Tema.get(Tema.TEXTO), true);
+        box.addView(val);
+        slider(a, mv, box, "Grossura (0 = sem contorno)", 16, Math.round(g[0] * 2), v -> { g[0] = v / 2f; val.setText(fmt(g[0])); });
+        LinearLayout row = new LinearLayout(a);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        TextView cancel = mv.btn("Cancelar", 0xFFE3E7EE, 0xFF1B1F27);
+        TextView ok = mv.btn("Aplicar", 0xFF2EAD4B, Color.WHITE);
+        row.addView(cancel, new LinearLayout.LayoutParams(0, -2, 1f));
+        LinearLayout.LayoutParams l3 = new LinearLayout.LayoutParams(0, -2, 1f);
+        l3.leftMargin = mv.dp(6);
+        row.addView(ok, l3);
+        LinearLayout.LayoutParams rl = new LinearLayout.LayoutParams(-1, -2);
+        rl.topMargin = mv.dp(12);
+        box.addView(row, rl);
+        cancel.setOnClickListener(v -> d.dismiss());
+        ok.setOnClickListener(v -> { d.dismiss(); Tema.setGrossura(a, g[0]); pendente = true; depois.run(); });
+        d.show();
+    }
 
     static void slider(MainActivity a, MenuView mv, LinearLayout box, String nome, int max, int ini, final Val cb) {
         TextView t = mv.label(nome, 12, Tema.get(Tema.TEXTO2), true);
