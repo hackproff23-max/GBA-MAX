@@ -94,7 +94,7 @@ public class MainActivity extends Activity {
         });
         String crash = readText("crash.txt");
         String flag = readText("native.flag");
-        if (crash != null || flag != null) {
+        if ((crash != null || flag != null) && !tentarRecuperar(crash, flag)) {
             StringBuilder sb = new StringBuilder();
             if (crash != null) sb.append("ERRO JAVA:\n").append(crash).append("\n");
             if (flag != null) sb.append("O APP FECHOU NA ETAPA NATIVA: ").append(flag).append("\n");
@@ -103,7 +103,7 @@ public class MainActivity extends Activity {
             showError(sb.toString());
             return;
         }
-        buildUi();
+        buildUi(); iniciarRecuperacao();
     }
 
     void buildUi() {
@@ -277,6 +277,187 @@ public class MainActivity extends Activity {
     String hashVelho(Uri u) { try (InputStream in = getContentResolver().openInputStream(u)) { ByteArrayOutputStream o = new ByteArrayOutputStream(1 << 22); byte[] t = new byte[65536]; int k; while ((k = in.read(t)) != -1) o.write(t, 0, k); return getFilesDir() + "/" + Integer.toHexString(Arrays.hashCode(RomReader.extract(o.toByteArray()))); } catch (Throwable e) { return null; } }
     void apagarSaves(MenuView.Game g) { String n = g.name, nome = Pastas.seguro(n); if (loaded && n.equals(gameName)) { try { Native.unload(); } catch (Throwable t) { } loaded = false; } File dd = Pastas.dir(this, Pastas.DATA); if (dd != null) new File(dd, nome + ".sav").delete(); String b = stBaseFor(n); if (b != null) { for (int s = 1; s <= 5; s++) { new File(b + ".st" + s).delete(); new File(b + "-img" + s).delete(); } for (int s = 1; s <= 3; s++) { new File(b + ".auto" + s).delete(); new File(b + "-auto" + s).delete(); } new File(b + ".resume").delete(); new File(b + "-retomar").delete(); } String v = hashVelho(g.uri); if (v != null) { new File(v + ".sav").delete(); for (int s = 1; s <= 5; s++) new File(v + ".st" + s).delete(); } }
     void unmark() { new File(getFilesDir(), "native.flag").delete(); }
+
+    // ================= recuperação automática (jogo travou / app fechou) =================
+    boolean recoverOn() { return getPreferences(0).getBoolean("recuperar", true); }
+    void setRecover(boolean v) { getPreferences(0).edit().putBoolean("recuperar", v).apply(); }
+
+    volatile long beat;      // último quadro rodado pela thread do jogo (para o watchdog)
+    volatile int lastMask;   // últimos botões enviados ao jogo
+    boolean recAtivo, wdOn;
+    int prevMask, mudancas, probeHash;
+    long igualDesde, primeiraRec;
+    int recN;
+    Bitmap probe;
+    int[] probePx;
+    String recNome, recUri;
+    final android.os.Handler wdH = new android.os.Handler(android.os.Looper.getMainLooper());
+
+    void gravarRecuperar(Uri u) {
+        if (u == null || gameName == null) return;
+        writeText("recover.txt", gameName + "\n" + u.toString());
+    }
+
+    void apagarRecuperar() { new File(getFilesDir(), "recover.txt").delete(); }
+
+    /** Estado automático mais recente (101..103) a partir do prefixo dos estados; 0 se não houver. */
+    int autoMaisRecente(String base) {
+        if (base == null) return 0;
+        int best = 0;
+        long nm = 0;
+        for (int s = 1; s <= 3; s++) {
+            File f = new File(base + ".auto" + s);
+            if (f.isFile() && f.length() > 0 && f.lastModified() > nm) { nm = f.lastModified(); best = 100 + s; }
+        }
+        return best;
+    }
+
+    /** No início do app: se ele fechou sozinho no meio de um jogo, prepara a volta automática. */
+    boolean tentarRecuperar(String crash, String flag) {
+        try {
+            if (flag == null || !flag.startsWith("rodar o jogo") || !recoverOn()) return false;
+            String info = readText("recover.txt");
+            if (info == null) return false;
+            String[] p = info.split("\n");
+            if (p.length < 2 || p[0].isEmpty() || p[1].isEmpty()) return false;
+            long agora = System.currentTimeMillis();
+            if (agora - getPreferences(0).getLong("rec_ts", 0) < 20000) return false; // caiu de novo logo em seguida
+            getPreferences(0).edit().putLong("rec_ts", agora).apply();
+            if (crash != null) writeText("crash_ultimo.txt", crash);
+            new File(getFilesDir(), "crash.txt").delete();
+            new File(getFilesDir(), "native.flag").delete();
+            recNome = p[0];
+            recUri = p[1];
+            return true;
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    void iniciarRecuperacao() {
+        if (recNome == null || root == null || mv == null) return;
+        final String n = recNome, u = recUri;
+        recNome = null;
+        root.post(() -> {
+            try {
+                MenuView.Game g = new MenuView.Game();
+                g.name = n;
+                g.uri = Uri.parse(u);
+                String seg = Pastas.seguro(n);
+                boolean tinha = CheatMenu.algumLigado(this, seg);
+                if (tinha) CheatMenu.desligarTodos(this, seg);
+                pendingSlot = autoMaisRecente(stBaseFor(n));
+                skipResume = false;
+                toast("O jogo fechou de repente. Voltando ao estado automático mais recente" + (tinha ? " (cheats desligados por segurança)." : "."));
+                playGame(g);
+            } catch (Throwable t) { }
+        });
+    }
+
+    void resetObs() {
+        recAtivo = recoverOn();
+        beat = System.nanoTime();
+        igualDesde = 0;
+        mudancas = 0;
+        probeHash = 0;
+        prevMask = lastMask;
+        iniciarWatchdog();
+    }
+
+    /** Imagem parada há bastante tempo com o jogador apertando botões: o autosave não grava esse estado. */
+    boolean suspeitoTravado() {
+        return igualDesde != 0 && mudancas >= 10 && System.nanoTime() - igualDesde > 8_000_000_000L;
+    }
+
+    /** Chamado a cada quadro pela thread do jogo: percebe a imagem congelada mesmo com botões sendo apertados. */
+    void observar(int frame) {
+        if (!recAtivo) return;
+        int m = lastMask;
+        if (m != prevMask) { prevMask = m; mudancas++; }
+        if (frame % 30 != 0) return;
+        try {
+            if (probe == null) { probe = Bitmap.createBitmap(240, 160, Bitmap.Config.ARGB_8888); probePx = new int[240 * 160]; }
+            Native.draw(probe);
+            probe.getPixels(probePx, 0, 240, 0, 0, 240, 160);
+            int h = 17;
+            for (int i = 0; i < probePx.length; i++) h = h * 31 + probePx[i];
+            long agora = System.nanoTime();
+            if (h != probeHash) { probeHash = h; igualDesde = 0; mudancas = 0; }
+            else if (igualDesde == 0) igualDesde = agora;
+            else if (mudancas >= 40 && agora - igualDesde > 20_000_000_000L) {
+                igualDesde = 0;
+                mudancas = 0;
+                runOnUiThread(() -> recuperarEmProcesso("O jogo travou"));
+            }
+        } catch (Throwable t) { }
+    }
+
+    /** Volta ao estado automático mais recente (o do salvamento de 1 em 1 minuto) sem fechar o app. */
+    void recuperarEmProcesso(String motivo) {
+        if (!inGame || !loaded || menuOpen || stBase == null) return;
+        long agora = System.currentTimeMillis();
+        if (agora - primeiraRec > 120000) { primeiraRec = agora; recN = 0; }
+        if (++recN > 3) { toast("O jogo travou várias vezes seguidas. Veja se algum cheat está causando isso."); return; }
+        stop();
+        try {
+            String seg = Pastas.seguro(gameName != null ? gameName : "jogo");
+            boolean tinha = CheatMenu.algumLigado(this, seg);
+            if (tinha) { CheatMenu.desligarTodos(this, seg); Native.cheatReset(); }
+            int slot = autoMaisRecente(stBase);
+            if (slot != 0 && Native.loadState(statePath(slot))) {
+                afterLoadState();
+                toast(motivo + ": voltei ao estado automático mais recente" + (tinha ? " (cheats desligados por segurança)." : "."));
+            } else toast(motivo + ", mas ainda não existe estado automático salvo.");
+        } catch (Throwable t) { }
+        start();
+    }
+
+    /** Erro de Java dentro da thread do jogo: em vez de fechar o app, volta ao estado automático. */
+    void loopSeguro() {
+        try {
+            loop();
+        } catch (Throwable t) {
+            writeText("crash_ultimo.txt", trace(t));
+            run = false;
+            runOnUiThread(() -> recuperarEmProcesso("O jogo deu erro"));
+        }
+    }
+
+    // vigia: se o jogo para de rodar quadros (travou dentro do núcleo), reinicia o app e volta ao último automático
+    final Runnable wdTick = new Runnable() {
+        @Override public void run() {
+            wdOn = false;
+            if (!MainActivity.this.run || !inGame || menuOpen) return;
+            if (System.nanoTime() - beat > 7_000_000_000L) { travouDuro(); return; }
+            wdOn = true;
+            wdH.postDelayed(this, 2000);
+        }
+    };
+
+    void iniciarWatchdog() {
+        if (wdOn) return;
+        wdOn = true;
+        wdH.postDelayed(wdTick, 3000);
+    }
+
+    void travouDuro() {
+        toast("O jogo travou de vez. Reiniciando o app e voltando ao último estado automático...");
+        wdH.postDelayed(this::reiniciarApp, 1500);
+    }
+
+    void reiniciarApp() {
+        try {
+            Intent i = getPackageManager().getLaunchIntentForPackage(getPackageName());
+            if (i != null) {
+                i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                int fl = android.app.PendingIntent.FLAG_CANCEL_CURRENT | (Build.VERSION.SDK_INT >= 23 ? android.app.PendingIntent.FLAG_IMMUTABLE : 0);
+                android.app.PendingIntent pi = android.app.PendingIntent.getActivity(this, 77, i, fl);
+                ((android.app.AlarmManager) getSystemService(Context.ALARM_SERVICE)).set(android.app.AlarmManager.RTC, System.currentTimeMillis() + 600, pi);
+            }
+        } catch (Throwable t) { }
+        android.os.Process.killProcess(android.os.Process.myPid());
+        System.exit(0);
+    }
 
     void toast(String s) { Toast.makeText(this, s, Toast.LENGTH_LONG).show(); }
 
@@ -540,7 +721,7 @@ public class MainActivity extends Activity {
         if (!ok) { toast("ROM inválida"); return; }
         Native.loadSram(sav);
         loaded = true;
-        autoNs = 0;
+        autoNs = 0; gravarRecuperar(u);
         VideoSettings.openGame(this, nome); // configurações próprias do jogo (.json)
         if (gv != null) gv.loadSkin(this);
         if (gl != null) gl.reloadShader();
@@ -632,7 +813,7 @@ public class MainActivity extends Activity {
 
     /** Salvamento automático: 3 slots em rodízio, sempre sobrescreve o mais antigo. */
     void autoSave() {
-        if (!loaded || stBase == null) return;
+        if (!loaded || stBase == null || suspeitoTravado()) return;
         int best = 1;
         long old = Long.MAX_VALUE;
         for (int i = 1; i <= 3; i++) {
@@ -729,7 +910,7 @@ public class MainActivity extends Activity {
         VideoSettings.save(this);      // grava o .json do jogo
         VideoSettings.closeGame(this); // volta às configurações padrão
         if (gl != null) gl.reloadShader();
-        inGame = false;
+        inGame = false; apagarRecuperar();
         gv.touch = 0; gv.ta = false; gv.tb = false;
         gv.setVisibility(View.GONE);
         gl.setVisibility(View.GONE);
@@ -812,7 +993,7 @@ public class MainActivity extends Activity {
         at.play();
         run = true;
         mark("rodar o jogo (run)");
-        th = new Thread(this::loop);
+        resetObs(); th = new Thread(this::loopSeguro);
         th.start();
     }
 
@@ -834,7 +1015,7 @@ public class MainActivity extends Activity {
         int ffn = 0; float ffAcc = 0;
         final long T = 16743000L; // ~59.73 fps
         while (run) {
-            long t0 = System.nanoTime();
+            long t0 = System.nanoTime(); beat = t0; observar(frame);
             boolean f = gv.ff;
             int n = 1; if (f) { if (VideoSettings.ffSpeed == 1) { ffAcc += 1.5f; n = (int) ffAcc; ffAcc -= n; } else n = Math.max(2, VideoSettings.ffSpeed); }
             int fs = VideoSettings.frameskip; // pulo de quadros
@@ -844,7 +1025,7 @@ public class MainActivity extends Activity {
                 boolean skip = !last;
                 if (last) { shown++; skip = fs > 0 && (shown % (fs + 1)) != 0; }
                 Native.setSkip(skip);
-                Native.input(gv.mask(frame));
+                int mk = gv.mask(frame); lastMask = mk; Native.input(mk);
                 Native.run();
                 int c = Native.audio(ab);
                 if (c > 0) { if (!f) at.write(ab, 0, c); else if (ffn + c <= ffb.length) { System.arraycopy(ab, 0, ffb, ffn, c); ffn += c; } }

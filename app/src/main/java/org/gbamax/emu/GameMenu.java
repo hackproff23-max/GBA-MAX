@@ -198,6 +198,7 @@ class GameMenu {
         LinearLayout list = new HoverList(c);
         list.setOrientation(LinearLayout.VERTICAL);
         list.addView(row(MenuView.Icons.FACE, 0xFFE91E63, "Cores", "Shader, LCD, brilho, contraste...", this::openCores), lp());
+        list.addView(row(MenuView.Icons.CHEAT, 0xFFFFA000, "Cheats", "Ligar e desligar códigos do jogo", () -> new CheatMenu(this, Pastas.seguro(a.gameName != null ? a.gameName : "jogo"), true).show()), lp());
         list.addView(row(MenuView.Icons.SAVE, 0xFF2EAD4B, "Salvar estado", "5 slots manuais", () -> slots(true)), lp());
         list.addView(row(MenuView.Icons.LIB, 0xFF1E6BE6, "Carregar estado", "Retomar, 3 automáticos + 5 manuais", () -> slots(false)), lp());
         list.addView(row(MenuView.Icons.GEAR, 0xFF3A3C42, "Opções", "Vídeo, áudio, controle e avançado", this::options), lp());
@@ -205,7 +206,7 @@ class GameMenu {
         sv.setVerticalScrollBarEnabled(false);
         sv.addView(list);
         int maxH = (int) (c.getResources().getDisplayMetrics().heightPixels * .55f);
-        box.addView(sv, new LinearLayout.LayoutParams(-1, Math.min(dp(4 * 58), maxH)));
+        box.addView(sv, new LinearLayout.LayoutParams(-1, Math.min(dp(5 * 58), maxH)));
         LinearLayout btns = new LinearLayout(c);
         btns.setOrientation(LinearLayout.HORIZONTAL);
         TextView exit = mv.btn("Sair do jogo", 0xFFE3E7EE, 0xFF1B1F27);
@@ -299,7 +300,7 @@ class GameMenu {
             if (!on) a.clearResume();
             VideoSettings.save(c);
         }), lp());
-        optD = pageDialog("Opções", l, 6, null); optD.show();
+        l.addView(toggle("Recuperar se o jogo travar", a.recoverOn(), on -> a.setRecover(on)), lp()); optD = pageDialog("Opções", l, 7, null); optD.show();
     }
 
     static String ffl(int v) { return v == 1 ? "1,5x" : v + "x"; }
@@ -316,8 +317,9 @@ class GameMenu {
         l.addView(row(MenuView.Icons.HOME, 0xFF1E6BE6, "Reiniciar jogo", "Começa do início (os saves ficam)", () -> { dismissAll(); a.skipResume = true; a.pendingSlot = 0; a.playGame(g); }), lp());
         l.addView(row(MenuView.Icons.LIB, 0xFFFFA000, "Estados salvos", "Escolher um estado para abrir", () -> estados(g)), lp());
         l.addView(row(MenuView.Icons.FACE, 0xFFE91E63, "Shader", shaderSub(g), () -> escolherShader(g)), lp());
+        l.addView(row(MenuView.Icons.CHEAT, 0xFFFFA000, "Cheats", "Ligar e desligar códigos deste jogo", () -> new CheatMenu(this, Pastas.seguro(g.name), false).show()), lp());
         l.addView(row(MenuView.Icons.SAVE, 0xFFE53935, "Apagar save", "Remove o save e os estados do jogo", () -> confirm("Apagar save", "O save e todos os estados salvos (manuais, automáticos e retomar) de " + g.name + " serão apagados. Não dá para desfazer.", () -> { a.apagarSaves(g); toast("Save apagado"); })), lp());
-        pageDialog(g.name, l, 5, null).show();
+        pageDialog(g.name, l, 6, null).show();
     }
     String shaderNome(String s) { return s == null || s.isEmpty() ? "Nenhum" : s.substring(s.lastIndexOf(47) + 1); }
     String shaderSub(MenuView.Game g) { return VideoSettings.shaderPadraoDoJogo(c, g.name) ? "Padrão (" + shaderNome(VideoSettings.shader) + ")" : "Só este jogo: " + shaderNome(VideoSettings.shaderNomeDoJogo(c, g.name)); }

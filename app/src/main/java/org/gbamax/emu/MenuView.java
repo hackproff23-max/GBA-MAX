@@ -927,7 +927,7 @@ public class MenuView extends FrameLayout {
 
     // ================= ícones desenhados em código =================
     static class Icons {
-        static final int WIFI = 0, HEAD = 1, HOME = 2, CHAT = 3, BAG = 4, LIB = 5, FACE = 6, PAD = 7, GEAR = 8, COIN = 9, CAL = 10, CLOCK = 11, SCREEN = 12, AUDIO = 13, SAVE = 14, ADV = 15;
+        static final int WIFI = 0, HEAD = 1, HOME = 2, CHAT = 3, BAG = 4, LIB = 5, FACE = 6, PAD = 7, GEAR = 8, COIN = 9, CAL = 10, CLOCK = 11, SCREEN = 12, AUDIO = 13, SAVE = 14, ADV = 15, CHEAT = 16;
 
         static void draw(Canvas c, int t, float x, float y, float r, int col, Paint p) {
             p.setShader(null);
@@ -1104,6 +1104,19 @@ public class MenuView extends FrameLayout {
                     c.drawCircle(x - .35f * r, y - .55f * r, r * .24f, p);
                     c.drawCircle(x + .4f * r, y, r * .24f, p);
                     c.drawCircle(x - .1f * r, y + .55f * r, r * .24f, p);
+                    break;
+                case CHEAT:
+                    p.setStyle(Paint.Style.FILL_AND_STROKE);
+                    p.setStrokeWidth(r * .12f);
+                    Path bz = new Path();
+                    bz.moveTo(x + .15f * r, y - r);
+                    bz.lineTo(x - .65f * r, y + .1f * r);
+                    bz.lineTo(x - .05f * r, y + .1f * r);
+                    bz.lineTo(x - .2f * r, y + r);
+                    bz.lineTo(x + .65f * r, y - .2f * r);
+                    bz.lineTo(x + .05f * r, y - .2f * r);
+                    bz.close();
+                    c.drawPath(bz, p);
                     break;
                 case COIN:
                     p.setStyle(Paint.Style.FILL);
