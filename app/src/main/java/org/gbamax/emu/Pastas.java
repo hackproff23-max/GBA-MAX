@@ -21,7 +21,8 @@ final class Pastas {
     static final String CHEATS = "Cheats";         // um .cht por jogo, com o nome do jogo
     static final String PERSONALIZAR = "Personalizar"; // imagens dos botões, fundo do app e abertura
     static final String AVANCADO = "Avançado"; // personalizacao.json com tudo que você edita
-    static final String[] TODAS = {CONFIG, SHADERS, DATA, SAVES, CHEATS, PERSONALIZAR, AVANCADO};
+    static final String CAPAS = "Capas"; // capas dos jogos (baixadas ou importadas)
+    static final String[] TODAS = {CONFIG, SHADERS, DATA, SAVES, CHEATS, PERSONALIZAR, AVANCADO, CAPAS};
 
     static boolean temAcesso(Context c) {
         if (Build.VERSION.SDK_INT >= 30) return Environment.isExternalStorageManager();
@@ -32,6 +33,7 @@ final class Pastas {
     }
 
     static File raiz() { return new File(Environment.getExternalStorageDirectory(), RAIZ); }
+    static File capas(Context c) { File old = new File(c.getFilesDir(), "covers"); File d = dir(c, CAPAS); if (d == null) return old; try { new File(d, ".nomedia").createNewFile(); } catch (Exception e) { } File[] l = old.listFiles(); if (l != null) for (File f : l) { File t = new File(d, f.getName()); if (f.isFile() && (t.exists() || copiar(f, t))) f.delete(); } return d; }
 
     /** Cria a pasta GBA-MAX e as 5 subpastas. Devolve false se não tiver permissão ou falhar. */
     static boolean criar(Context c) {

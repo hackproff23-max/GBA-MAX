@@ -24,7 +24,7 @@ final class CapaCustom {
 
     /** Mesmo arquivo que o baixador de capas usa, então a capa importada não é sobrescrita. */
     static File arquivo(Context c, String nome) {
-        return new File(new File(c.getFilesDir(), "covers"), CoverFetcher.safe(nome) + ".jpg");
+        return new File(Pastas.capas(c), CoverFetcher.safe(nome) + ".jpg");
     }
 
     static void escolher(MainActivity a, MenuView.Game g) {

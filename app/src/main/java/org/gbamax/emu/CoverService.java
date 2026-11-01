@@ -49,7 +49,7 @@ public class CoverService extends Service {
         note(0, l.size(), "Iniciando...");
         new Thread(() -> {
             CoverFetcher.BYTES.set(0);
-            CoverFetcher f = new CoverFetcher(new File(getFilesDir(), "covers"), getContentResolver());
+            CoverFetcher f = new CoverFetcher(Pastas.capas(this), getContentResolver());
             current = f;
             try {
                 f.run(l, (g, file) -> { CoverFetcher.Done d = listener; if (d != null) d.onCover(g, file); },

@@ -557,7 +557,7 @@ public class MainActivity extends Activity {
 
     void fetchCovers(final List<MenuView.Game> l) {
         final int gen = ++coverGen;
-        final File dir = new File(getFilesDir(), "covers");
+        final File dir = Pastas.capas(this);
         new Thread(() -> new CoverFetcher(dir, getContentResolver()).run(new ArrayList<>(l), (g, f) -> runOnUiThread(() -> {
             if (gen != coverGen) return;
             g.cover = Uri.fromFile(f);

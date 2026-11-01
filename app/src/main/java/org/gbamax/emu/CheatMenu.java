@@ -243,6 +243,7 @@ class CheatMenu {
         cl.leftMargin = g.dp(8);
         btns.addView(colar, cl);
         l.addView(btns, g.lp());
+        TextView baixar = g.mv.btn("Baixar cheats de todos os jogos (PT-BR)", 0xFF7E57C2, Color.WHITE); l.addView(baixar, g.lp()); baixar.setOnClickListener(v -> new CheatBaixar(g).iniciar(() -> { lista = ler(c, jogo); preencher(); mudou = true; }));
 
         rows = new LinearLayout(c);
         rows.setOrientation(LinearLayout.VERTICAL);
