@@ -742,16 +742,6 @@ public class MenuView extends FrameLayout {
             c.save();
             c.clipPath(rr);
             fill.setStyle(Paint.Style.FILL);
-            if (bm != null) {
-                float s = Math.max(r.width() / bm.getWidth(), r.height() / bm.getHeight());
-                mx.setScale(s, s);
-                mx.postTranslate(r.left + (r.width() - bm.getWidth() * s) / 2,
-                        r.top + (r.height() - bm.getHeight() * s) / 2);
-                BitmapShader sh = new BitmapShader(bm, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP);
-                sh.setLocalMatrix(mx);
-                fill.setShader(sh);
-                c.drawRect(r, fill);
-            } else {
                 int hh = (g.name.hashCode() & 0x7fffffff) % 360;
                 float[] hsv = {hh, .6f, .95f};
                 int c1 = Color.HSVToColor(hsv);
