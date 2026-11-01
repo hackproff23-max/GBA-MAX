@@ -75,7 +75,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
-        VideoSettings.load(this);
+        Avancado.carregar(this); VideoSettings.load(this);
         Tema.load(this);
         VideoSettings.applyMenuOrientation(this); // menu sempre em retrato
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
@@ -182,7 +182,7 @@ public class MainActivity extends Activity {
             runOnUiThread(() -> {
                 if (gv != null) gv.loadSkin(this);
                 aplicarFundo();
-                toast(m);
+                Avancado.salvar(this); toast(m);
             });
         }).start();
     }
@@ -867,7 +867,7 @@ public class MainActivity extends Activity {
         }
     }
 
-    @Override protected void onPause() { super.onPause(); stop(); save(); saveResume(); if (gl != null) gl.onPause(); }
+    @Override protected void onPause() { super.onPause(); stop(); save(); saveResume(); if (gl != null) gl.onPause(); Avancado.salvar(this); }
     @Override protected void onResume() {
         super.onResume();
         if (gl != null) gl.onResume();

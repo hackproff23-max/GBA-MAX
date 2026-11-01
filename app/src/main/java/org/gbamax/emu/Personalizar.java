@@ -479,7 +479,7 @@ final class Personalizar {
         lista(a, "Remover", new String[]{"Botões personalizados", "Fundo do app", "Abertura"}, w -> {
             if (w == 2) { File ab = abertura(a); if (ab != null) ab.delete(); ab = abertura(a); if (ab != null) ab.delete(); } else if (w == 0) { apagarBotoes(a); if (a.gv != null) a.gv.loadSkin(a); }
             else { File f = fundo(a); if (f != null) f.delete(); File g = fundoGif(a); if (g != null) g.delete(); a.aplicarFundo(); }
-            a.toast("Removido");
+            Avancado.salvar(a); a.toast("Removido");
         });
     }
 

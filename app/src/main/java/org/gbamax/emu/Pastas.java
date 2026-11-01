@@ -20,7 +20,8 @@ final class Pastas {
     static final String SAVES = "Saves";           // savestates (.st1 a .st5)
     static final String CHEATS = "Cheats";         // um .cht por jogo, com o nome do jogo
     static final String PERSONALIZAR = "Personalizar"; // imagens dos botões, fundo do app e abertura
-    static final String[] TODAS = {CONFIG, SHADERS, DATA, SAVES, CHEATS, PERSONALIZAR};
+    static final String AVANCADO = "Avançado"; // personalizacao.json com tudo que você edita
+    static final String[] TODAS = {CONFIG, SHADERS, DATA, SAVES, CHEATS, PERSONALIZAR, AVANCADO};
 
     static boolean temAcesso(Context c) {
         if (Build.VERSION.SDK_INT >= 30) return Environment.isExternalStorageManager();

@@ -50,6 +50,7 @@ public class VideoSettings {
     /** Nome do jogo aberto (null = fora do jogo, usa as configurações padrão). */
     public static volatile String game = null;
     static String gLayoutP, gLayoutL;
+    static volatile boolean shaderPadrao = true; static String shaderBase = "";
 
     static SharedPreferences sp(Context c) { return c.getSharedPreferences("gbamax_video", 0); }
 
@@ -95,7 +96,7 @@ public class VideoSettings {
         load(c);
         gLayoutP = sp(c).getString("layout_p", null);
         gLayoutL = sp(c).getString("layout_l", null);
-        game = nome;
+        shaderBase = shader; shaderPadrao = true; game = nome;
         File jf = jsonFile(c);
         if (jf == null) { game = null; return; } // sem acesso à pasta: usa as padrão
         if (jf.isFile()) readJson(jf); else writeJson(jf);
@@ -119,7 +120,7 @@ public class VideoSettings {
             JSONObject o = new JSONObject();
             o.put("orient", orient);
             o.put("frameskip", frameskip);
-            o.put("shader", shader == null ? "" : shader);
+            if (shaderPadrao && !String.valueOf(shader).equals(shaderBase)) shaderPadrao = false; o.put("shader", shader == null ? "" : shader); o.put("shader_padrao", shaderPadrao);
             o.put("bright", bright);
             o.put("contrast", contrast);
             o.put("sat", sat);
@@ -156,7 +157,7 @@ public class VideoSettings {
             JSONObject o = new JSONObject(b.toString("UTF-8"));
             orient = o.optInt("orient", orient);
             frameskip = o.optInt("frameskip", frameskip);
-            shader = o.optString("shader", shader);
+            shaderPadrao = o.optBoolean("shader_padrao", false); if (!shaderPadrao) shader = o.optString("shader", shader);
             bright = o.optInt("bright", bright);
             contrast = o.optInt("contrast", contrast);
             sat = o.optInt("sat", sat);
@@ -176,6 +177,10 @@ public class VideoSettings {
         } catch (Exception e) { }
     }
 
+    static JSONObject jogoObj(Context c, String nome) { try { File d = Pastas.dir(c, Pastas.CONFIG); if (d == null) return null; File f = new File(d, Pastas.seguro(nome) + ".json"); if (!f.isFile()) return new JSONObject(); ByteArrayOutputStream b = new ByteArrayOutputStream(); try (InputStream in = new FileInputStream(f)) { byte[] t = new byte[4096]; int k; while ((k = in.read(t)) != -1) b.write(t, 0, k); } return new JSONObject(b.toString("UTF-8")); } catch (Exception e) { return new JSONObject(); } }
+    static boolean shaderPadraoDoJogo(Context c, String nome) { JSONObject o = jogoObj(c, nome); return o == null || o.length() == 0 || o.optBoolean("shader_padrao", false); }
+    static String shaderNomeDoJogo(Context c, String nome) { JSONObject o = jogoObj(c, nome); return o == null ? "" : o.optString("shader", ""); }
+    static void shaderDoJogo(Context c, String nome, boolean padrao, String sh) { try { File d = Pastas.dir(c, Pastas.CONFIG); if (d == null) return; JSONObject o = jogoObj(c, nome); o.put("shader", sh == null ? "" : sh); o.put("shader_padrao", padrao); try (OutputStream w = new FileOutputStream(new File(d, Pastas.seguro(nome) + ".json"))) { w.write(o.toString(2).getBytes("UTF-8")); } } catch (Exception e) { } }
     public static void resetColors() { bright = 0; contrast = 100; sat = 100; gamma = 100; lcd = 0; }
 
     /** Orientação escolhida pelo usuário: usada só no jogo e no editor de layout. */
