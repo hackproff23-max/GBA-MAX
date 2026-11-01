@@ -137,7 +137,7 @@ class GameMenu {
         cl.leftMargin = dp(6);
         row.addView(col, cl);
         row.addView(mv.label("›", 20, 0xFF8A93A3, false));
-        row.setOnClickListener(v -> r.run());
+        row.setTag("hov"); row.setOnClickListener(v -> r.run());
         return row;
     }
 
@@ -195,7 +195,7 @@ class GameMenu {
         TextView title = mv.label("Menu", 18, 0xFF1B1F27, true);
         title.setPadding(dp(4), 0, 0, dp(10));
         box.addView(title);
-        LinearLayout list = new LinearLayout(c);
+        LinearLayout list = new HoverList(c);
         list.setOrientation(LinearLayout.VERTICAL);
         list.addView(row(MenuView.Icons.FACE, 0xFFE91E63, "Cores", "Shader, LCD, brilho, contraste...", this::openCores), lp());
         list.addView(row(MenuView.Icons.SAVE, 0xFF2EAD4B, "Salvar estado", "5 slots manuais", () -> slots(true)), lp());
@@ -230,7 +230,7 @@ class GameMenu {
     // ================= estados salvos =================
     // slots 1..5 = manuais; 101..103 = automáticos (a cada 1 minuto jogado, só para carregar)
     void slots(final boolean save) {
-        LinearLayout l = new LinearLayout(c);
+        LinearLayout l = new HoverList(c);
         l.setOrientation(LinearLayout.VERTICAL);
         SimpleDateFormat df = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault());
         int rows = 5;
@@ -287,7 +287,7 @@ class GameMenu {
 
     // ================= opções =================
     void options() {
-        LinearLayout l = new LinearLayout(c);
+        LinearLayout l = new HoverList(c);
         l.setOrientation(LinearLayout.VERTICAL);
         l.addView(row(MenuView.Icons.SCREEN, 0xFF1E6BE6, "Vídeo", "Orientação, shaders, layout, pulo de quadros", () -> new VideoMenu(mv).show()), lp());
         l.addView(row(MenuView.Icons.AUDIO, 0xFFFFA000, "Áudio", "Volume, mudo e buffer", this::audio), lp());
@@ -306,7 +306,7 @@ class GameMenu {
     class HoverList extends LinearLayout {
         View hot;
         HoverList(Context x) { super(x); setOrientation(VERTICAL); setPadding(dp(6), dp(4), dp(6), dp(4)); }
-        void paint(View v, boolean on) { v.animate().cancel(); v.animate().scaleX(on ? 1.04f : 1f).scaleY(on ? 1.04f : 1f).translationZ(on ? dp(6) : 0).setDuration(140).start(); if (v.getBackground() instanceof GradientDrawable) { GradientDrawable gd = (GradientDrawable) v.getBackground(); gd.setColor(on ? 0xE6CFE3FF : 0x99FFFFFF); gd.setStroke(dp(on ? 2 : 1), on ? 0xFF4D9BFF : 0xCCFFFFFF); } }
+        void paint(View v, boolean on) { if (!"hov".equals(v.getTag())) return; v.animate().cancel(); v.animate().scaleX(on ? 1.04f : 1f).scaleY(on ? 1.04f : 1f).translationZ(on ? dp(6) : 0).setDuration(140).start(); if (v.getBackground() instanceof GradientDrawable) { GradientDrawable gd = (GradientDrawable) v.getBackground(); gd.setColor(on ? 0xE6CFE3FF : 0x99FFFFFF); gd.setStroke(dp(on ? 2 : 1), on ? 0xFF4D9BFF : 0xCCFFFFFF); } }
         void setHot(View v) { if (v == hot) return; if (hot != null) paint(hot, false); hot = v; if (v != null) paint(v, true); }
         @Override public boolean dispatchTouchEvent(android.view.MotionEvent e) { int ac = e.getActionMasked(); if (ac == android.view.MotionEvent.ACTION_DOWN || ac == android.view.MotionEvent.ACTION_MOVE) { View f = null; for (int i = 0; i < getChildCount(); i++) { View ch = getChildAt(i); if (e.getX() >= ch.getLeft() && e.getX() <= ch.getRight() && e.getY() >= ch.getTop() && e.getY() <= ch.getBottom()) f = ch; } setHot(f); } else if (ac == android.view.MotionEvent.ACTION_UP || ac == android.view.MotionEvent.ACTION_CANCEL) setHot(null); return super.dispatchTouchEvent(e); }
     }
@@ -339,7 +339,7 @@ class GameMenu {
     }
     void ffPick() { int cur = 1; for (int i = 0; i < FF.length; i++) if (FF[i] == VideoSettings.ffSpeed) cur = i; String[] it = new String[FF.length]; for (int i = 0; i < FF.length; i++) it[i] = ffl(FF[i]); vmBack(this::options).choice("Avanço rápido", it, cur, i -> { VideoSettings.ffSpeed = FF[i]; VideoSettings.save(c); options(); }); }
     void audio() {
-        LinearLayout l = new LinearLayout(c);
+        LinearLayout l = new HoverList(c);
         l.setOrientation(LinearLayout.VERTICAL);
         vmBack(null).slider(l, "Volume", 0, 100, VideoSettings.volume, "pct", v -> VideoSettings.volume = v);
         l.addView(toggle("Som", !VideoSettings.mute, on -> VideoSettings.mute = !on), lp());
@@ -357,7 +357,7 @@ class GameMenu {
     }
 
     void control() {
-        LinearLayout l = new LinearLayout(c);
+        LinearLayout l = new HoverList(c);
         l.setOrientation(LinearLayout.VERTICAL);
         vmBack(null).slider(l, "Opacidade dos botões", 10, 100, VideoSettings.ctlAlpha, "pct", v -> VideoSettings.ctlAlpha = v);
         l.addView(toggle("Vibração ao tocar", VideoSettings.vibrate, on -> VideoSettings.vibrate = on), lp());
@@ -376,7 +376,7 @@ class GameMenu {
         int cur = 1;
         for (int i = 0; i < AUTO_S.length; i++) if (AUTO_S[i] == VideoSettings.autoSecs) cur = i;
         final int curA = cur;
-        LinearLayout l = new LinearLayout(c);
+        LinearLayout l = new HoverList(c);
         l.setOrientation(LinearLayout.VERTICAL);
         l.addView(toggle("Salvamento automático", VideoSettings.autoOn, on -> VideoSettings.autoOn = on), lp());
         l.addView(row(MenuView.Icons.ADV, 0xFFFFA000, "Intervalo do automático", AUTO_L[curA] + " (3 slots em rodízio)", () -> {
@@ -408,7 +408,7 @@ class GameMenu {
         int cur = 2;
         for (int i = 0; i < FF.length; i++) if (FF[i] == VideoSettings.ffSpeed) cur = i;
         final int curFf = cur;
-        LinearLayout l = new LinearLayout(c);
+        LinearLayout l = new HoverList(c);
         l.setOrientation(LinearLayout.VERTICAL);
         l.addView(row(MenuView.Icons.ADV, 0xFF1E6BE6, "Avanço rápido", ffl(VideoSettings.ffSpeed), () -> {
             advD.dismiss();
