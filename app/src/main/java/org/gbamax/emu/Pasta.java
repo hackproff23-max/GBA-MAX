@@ -38,6 +38,7 @@ final class Pasta {
 
     static final Map<String, Boolean> cache = Collections.synchronizedMap(new HashMap<String, Boolean>());
 
+    static String exibir(String n) { StringBuilder b = new StringBuilder(); int nv = 0; for (int i = 0; i < n.length(); i++) { char c = n.charAt(i); if (c == 40) { nv++; continue; } if (c == 41) { if (nv > 0) nv--; continue; } if (nv > 0) continue; b.append(c == 45 ? (char) 32 : c); } StringBuilder r = new StringBuilder(); boolean esp = true; for (int i = 0; i < b.length(); i++) { char c = b.charAt(i); if (Character.isWhitespace(c)) { if (!esp) r.append((char) 32); esp = true; } else { r.append(c); esp = false; } } if (r.length() > 0 && r.charAt(r.length() - 1) == 32) r.setLength(r.length() - 1); return r.length() == 0 ? n : r.toString(); }
     static File arq() { return new File(Pastas.raiz(), "pasta_jogos.json"); }
 
     /** Caminho salvo no json (se a pasta ainda existir), senão null. */

@@ -696,7 +696,7 @@ public class MenuView extends FrameLayout {
             LayoutParams lp = (LayoutParams) cv.getLayoutParams();
             int hh = cw;
             if (lp.height != hh) { lp.height = hh; cv.setLayoutParams(lp); }
-            t1.setText(g.name);
+            t1.setText(Pasta.exibir(g.name));
             cv.bind(g, sel);
         }
     }
@@ -792,7 +792,7 @@ public class MenuView extends FrameLayout {
                 fill.setShader(new LinearGradient(r.left, r.top, r.right, r.bottom, c1, c2, Shader.TileMode.CLAMP));
                 c.drawRect(r, fill);
                 if (sl == null) {
-                    String t = g.name.replaceAll("\\s*[\\(\\[].*?[\\)\\]]", "").trim();
+                    String t = Pasta.exibir(g.name);
                     if (t.isEmpty()) t = g.name;
                     TextPaint tp = new TextPaint(Paint.ANTI_ALIAS_FLAG);
                     tp.setColor(Color.WHITE);
