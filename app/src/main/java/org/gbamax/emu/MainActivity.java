@@ -141,7 +141,6 @@ public class MainActivity extends Activity {
             else mv.setGames(new ArrayList<MenuView.Game>(), null, false);
             ensureFolder();
             aplicarFundo();
-            try { root.addView(new Intro(this), new FrameLayout.LayoutParams(-1, -1)); } catch (Throwable t) { }
         } catch (Throwable t) {
             showError(trace(t));
         }
@@ -149,7 +148,6 @@ public class MainActivity extends Activity {
 
     // ================= personalizar: botões, fundo e abertura =================
     String pendingKey;
-    boolean introShown;
 
     void pickFiles(int req, boolean multi, String... mimes) {
         Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
