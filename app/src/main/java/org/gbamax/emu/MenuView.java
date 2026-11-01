@@ -663,11 +663,11 @@ public class MenuView extends FrameLayout {
             plate = new LinearLayout(c);
             plate.setOrientation(VERTICAL);
             plate.setGravity(Gravity.CENTER);
-            plate.setPadding(dp(6), dp(12), dp(6), dp(6));
+            plate.setPadding(dp(8), dp(4), dp(8), dp(4));
             GradientDrawable g = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
                     new int[]{Tema.get(Tema.PLACA_TOPO), Tema.get(Tema.PLACA_BASE)});
             g.setCornerRadius(dp(14));
-            g.setStroke(dp(Tema.grossura), Tema.get(Tema.CONTORNO));
+            g.setStroke(dp(Math.min(Tema.grossura, 1f)), Tema.get(Tema.CONTORNO));
             plate.setBackground(g);
             plate.setElevation(dp(18));
 
@@ -675,26 +675,26 @@ public class MenuView extends FrameLayout {
             t1.setTextColor(Tema.get(Tema.TEXTO));
             t1.setTextSize(11.5f);
             t1.setTypeface(Typeface.DEFAULT_BOLD);
-            t1.setSingleLine(false); t1.setMinLines(2); t1.setMaxLines(2);
+            t1.setSingleLine(false); t1.setMinLines(1); t1.setMaxLines(2); t1.setIncludeFontPadding(false);
             t1.setEllipsize(TextUtils.TruncateAt.END);
             t1.setGravity(Gravity.CENTER);
             t2 = new Txt(c);
             t2.setTextColor(Tema.get(Tema.TEXTO2));
             t2.setTextSize(10.5f);
-            t2.setSingleLine(true);
+            t2.setSingleLine(true); t2.setIncludeFontPadding(false);
             t2.setGravity(Gravity.CENTER);
             t2.setText("Game Boy Advance");
             plate.addView(t1, new LayoutParams(-1, -2));
             plate.addView(t2, new LayoutParams(-1, -2));
 
             LayoutParams pl = new LayoutParams(-1, -2);
-            pl.setMargins(dp(10), -dp(14), dp(10), dp(4));
+            pl.setMargins(dp(10), -dp(18), dp(10), dp(4));
             addView(plate, pl);
         }
 
         void bind(Game g, boolean sel) {
             LayoutParams lp = (LayoutParams) cv.getLayoutParams();
-            int hh = (int) (cw * .88f);
+            int hh = cw;
             if (lp.height != hh) { lp.height = hh; cv.setLayoutParams(lp); }
             t1.setText(g.name);
             cv.bind(g, sel);
@@ -717,7 +717,7 @@ public class MenuView extends FrameLayout {
             setOutlineProvider(new ViewOutlineProvider() {
                 @Override public void getOutline(View v, Outline o) {
                     int in = dp(6);
-                    o.setRoundRect(in, in, v.getWidth() - in, v.getHeight() - in, dp(18));
+                    o.setRoundRect(in, in, v.getWidth() - in, v.getHeight() - in, dp(4));
                 }
             });
         }
@@ -738,10 +738,11 @@ public class MenuView extends FrameLayout {
         }
 
         @Override protected void onSizeChanged(int w, int h, int ow, int oh) { sl = null; }
+        @Override protected void onMeasure(int ws, int hs) { int s = MeasureSpec.getSize(ws); setMeasuredDimension(s, s); }
 
         @Override protected void onDraw(Canvas c) {
             if (g == null) return;
-            float w = getWidth(), h = getHeight(), in = dp(6), rad = dp(18);
+            float w = getWidth(), h = getHeight(), in = dp(6), rad = dp(4);
             r.set(in, in, w - in, h - in);
             if (sel) {
                 line.setStyle(Paint.Style.STROKE);
