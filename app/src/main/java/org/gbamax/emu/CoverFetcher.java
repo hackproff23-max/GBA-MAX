@@ -75,6 +75,7 @@ public class CoverFetcher {
     public void run(List<MenuView.Game> games, Done cb, Progress pg, boolean offline) {
         int total = games.size();
         offlineMode = offline;
+        RomId.garantirDat(dir, !offline);
         int done = 0;
         for (MenuView.Game g : games) {
             if (cancel) return;
@@ -83,7 +84,13 @@ public class CoverFetcher {
                 if (g.cover != null) continue; // capa colocada por você na pasta tem prioridade
                 File f = new File(dir, safe(g.name) + ".jpg");
                 File old = new File(dir, safe(g.name) + ".png"); // capas baixadas em versões antigas
-                File pb = new File(dir, safe(g.name) + "_pb.jpg"), pbn = new File(dir, safe(g.name) + "_pb.none"); if (pb.length() > 500) { cb.onCover(g, pb); continue; } if (!offline && !(pbn.exists() && System.currentTimeMillis() - pbn.lastModified() < MAX_AGE) && ehPoke(g)) { boolean got = false, mk = true; try { got = pokebat(g.name, pb); } catch (Throwable t) { mk = false; } if (got) { cb.onCover(g, pb); continue; } if (mk) { try { pbn.createNewFile(); pbn.setLastModified(System.currentTimeMillis()); } catch (IOException e) { } } }
+                File src = new File(dir, safe(g.name) + ".src");
+                if (offline && f.length() > 500 && src.exists()) { cb.onCover(g, f); continue; }
+                RomId.Info ri = RomId.info(cr, g.uri, dir);
+                String of = ri == null ? null : RomId.oficial(ri, g.name);
+                boolean pk = (ri != null && RomId.ehPokemon(ri.code)) || norm(g.name).contains("pokemon");
+                if (pk && of == null) continue; // mod/hack de Pokémon (ou ROM ainda não identificada): sem imagem
+                if (of != null) { List<String> sl = src.exists() ? readLines(src) : new ArrayList<String>(); boolean mesma = !sl.isEmpty() && of.equals(sl.get(0)); if (f.length() > 500 && (offline || mesma)) { cb.onCover(g, f); continue; } if (offline) { if (old.length() > 500) cb.onCover(g, old); continue; } f.delete(); for (String c : candidatos(of)) { if (cancel) return; if (download(c, f)) { writeText(src, of); cb.onCover(g, f); break; } } continue; }
                 if (f.length() > 500) { cb.onCover(g, f); continue; }
                 if (old.length() > 500) { cb.onCover(g, old); continue; }
                 if (offline) continue;

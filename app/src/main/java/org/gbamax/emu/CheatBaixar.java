@@ -79,6 +79,7 @@ class CheatBaixar {
 
     void executar(List<MenuView.Game> jogos) {
         try { carregarLista(); } catch (Throwable t) { prog(0, "Não consegui acessar a lista de cheats", "Verifique a internet e tente de novo."); return; }
+        final File cd = Pastas.capas(a); prog(1, "Lendo as ROMs...", ""); RomId.garantirDat(cd, true);
         Map<String, List<CheatMenu.Cheat>> achados = new LinkedHashMap<>();
         int sem = 0, tinha = 0, n = jogos.size(), i = 0;
         for (MenuView.Game gm : jogos) {
@@ -87,7 +88,7 @@ class CheatBaixar {
             prog(i * 55 / n, gm.name, i + "/" + n);
             String jogo = Pastas.seguro(gm.name);
             if (!CheatMenu.ler(a, jogo).isEmpty()) { tinha++; continue; }
-            String nome = achar(gm.name);
+            String nome = achar(gm.name); RomId.Info ri = RomId.info(a.getContentResolver(), gm.uri, cd); if (ri != null) { String of = RomId.oficial(ri, gm.name); String viaRom = of != null ? porNome(of) : null; if (viaRom != null) nome = viaRom; else if (nome == null) { String base = RomId.baseMesmoTamanho(ri); nome = base != null ? porNome(base) : null; } }
             if (nome == null) { sem++; continue; }
             try {
                 String txt = CoverFetcher.httpText(RAW + CoverFetcher.enc(PASTA) + "/" + CoverFetcher.enc(nome) + ".cht");
@@ -140,6 +141,7 @@ class CheatBaixar {
     }
 
     /** Acha o arquivo de cheats do jogo: nome igual ou quase igual (nada de adivinhar jogo parecido). */
+    String porNome(String n) { String h = byFull.get(CoverFetcher.fullKey(n)); if (h != null) return h; List<String> l = byKey.get(CoverFetcher.key(n)); return l != null ? CoverFetcher.best(l) : null; }
     String achar(String jogo) {
         String base = CoverFetcher.clean(jogo);
         String h = byFull.get(CoverFetcher.fullKey(base));
