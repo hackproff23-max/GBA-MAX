@@ -191,7 +191,7 @@ public class GameView extends View {
     /** Clareia a imagem do botão conforme o brilho (16 níveis, filtros reaproveitados). */
     LightingColorFilter lighten(float g) {
         int k = Math.max(0, Math.min(16, Math.round(g * 16)));
-        if (lf[k] == null) lf[k] = new LightingColorFilter(0xFFFFFFFF, (k * 7) * 0x010101);
+        if (lf[k] == null) lf[k] = new LightingColorFilter(0xFFFFFFFF, (k * 2) * 0x010101);
         return lf[k];
     }
 
@@ -765,7 +765,6 @@ public class GameView extends View {
             sr.set(ccx - cr, ccy - cr, ccx + cr, ccy + cr);
             c.drawBitmap(skDpad, null, sr, bp);
             // brilho no lado apertado da cruzeta
-            if (!h && !editing && cgl > 0f) drawHalo(c, ccx + cgx * cr * 0.62f, ccy + cgy * cr * 0.62f, cr * 0.5f, cgl);
             return;
         }
         float w = cr * 0.33f, L = cr;
@@ -853,10 +852,9 @@ public class GameView extends View {
             // brilho animado: acende rápido ao apertar e apaga devagar ao soltar
             if (ease(glow, i, on)) anim = true;
             float lum = ed || h ? 0f : glow[i];
-            if (lum > 0f) drawHalo(c, px[i], py[i], pr[i], lum);
             Bitmap sk = on && skOn[i] != null ? skOn[i] : skB[i];
             if (sk != null) {
-                float rr = pr[i] * (1f + 0.05f * lum);
+                float rr = pr[i];
                 bp.setAlpha(h ? 90 : 255);
                 bp.setColorFilter(lum > 0f ? lighten(lum) : null);
                 sr.set(px[i] - rr, py[i] - rr, px[i] + rr, py[i] + rr);
