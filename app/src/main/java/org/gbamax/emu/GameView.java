@@ -78,7 +78,9 @@ public class GameView extends View {
     // brilho animado ao apertar: 0 = apagado, 1 = aceso (um valor por botão e um para o D-pad)
     final float[] glow = new float[15];
     float cgl, cgx, cgy;
-    Bitmap halo;
+    Bitmap halo, halo2;
+    // brilho branco da cruzeta com skin: só pinta em cima dos pixels da imagem (SRC_ATOP)
+    final Paint gp = mkGp();
     final LightingColorFilter[] lf = new LightingColorFilter[17];
 
     // modo de edição
@@ -192,6 +194,26 @@ public class GameView extends View {
             hc.drawCircle(s / 2f, s / 2f, s / 2f, hp);
         }
         return halo;
+    }
+
+    static Paint mkGp() {
+        Paint q = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+        q.setXfermode(new android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.SRC_ATOP));
+        return q;
+    }
+
+    /** Mancha de luz branca que some nas bordas, criada uma vez só. */
+    Bitmap halo2() {
+        if (halo2 == null) {
+            int s = 128;
+            halo2 = Bitmap.createBitmap(s, s, Bitmap.Config.ARGB_8888);
+            Canvas hc = new Canvas(halo2);
+            Paint hp = new Paint(Paint.ANTI_ALIAS_FLAG);
+            hp.setShader(new RadialGradient(s / 2f, s / 2f, s / 2f,
+                    new int[]{0xFFFFFFFF, 0xDDFFFFFF, 0x00FFFFFF}, new float[]{0f, 0.45f, 1f}, Shader.TileMode.CLAMP));
+            hc.drawCircle(s / 2f, s / 2f, s / 2f, hp);
+        }
+        return halo2;
     }
 
     /** Luz em volta do ponto (x, y); g = intensidade 0..1. */
@@ -778,8 +800,20 @@ public class GameView extends View {
             bp.setColorFilter(null);
             bp.setAlpha(h ? 90 : 255);
             sr.set(ccx - cr, ccy - cr, ccx + cr, ccy + cr);
-            c.drawBitmap(skDpad, null, sr, bp);
-            // brilho no lado apertado da cruzeta
+            if (!h && !editing && cgl > 0f && (cgx != 0 || cgy != 0)) {
+                // cada tecla acende sozinha; os cantos só acendem com duas direções juntas
+                int sv = c.saveLayer(sr, null);
+                c.drawBitmap(skDpad, null, sr, bp);
+                boolean diag = cgx != 0 && cgy != 0;
+                float o = cr * (diag ? 0.52f : 0.6f), R = cr * (diag ? 0.5f : 0.66f);
+                float gx = ccx + cgx * o, gy = ccy + cgy * o;
+                gp.setAlpha((int) (Math.min(1f, cgl) * 245));
+                tmp.set(gx - R, gy - R, gx + R, gy + R);
+                c.drawBitmap(halo2(), null, tmp, gp);
+                c.restoreToCount(sv);
+            } else {
+                c.drawBitmap(skDpad, null, sr, bp);
+            }
             return;
         }
         float w = cr * 0.33f, L = cr;
@@ -824,6 +858,12 @@ public class GameView extends View {
 
     /** Cruzeta em base%; só a(s) direção(ões) apertada(s) ficam 10% mais opacas (70% -> 80%). */
     void drawCrossLayered(Canvas c, boolean h, int base, boolean ed) {
+        if (skDpad != null) {
+            int sv0 = layerAt(c, ccx, ccy, cr, base);
+            drawCross(c, h);
+            c.restoreToCount(sv0);
+            return;
+        }
         int cm = crossM;
         if (h || ed || cm == 0) {
             int sv = layerAt(c, ccx, ccy, cr, base);
