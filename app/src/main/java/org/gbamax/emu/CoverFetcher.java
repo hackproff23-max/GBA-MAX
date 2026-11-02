@@ -90,7 +90,7 @@ public class CoverFetcher {
                 RomId.Info ri = RomId.info(cr, g.uri, dir);
                 String of = ri == null ? null : RomId.oficial(ri, g.name);
                 boolean pk = (ri != null && RomId.ehPokemon(ri.code)) || norm(g.name).contains("pokemon");
-                if (pk && of == null) continue; // mod/hack de Pokémon (ou ROM ainda não identificada): sem imagem
+                if (pk && of == null) { if (f.length() > 500) cb.onCover(g, f); continue; } // mod/hack de Pokémon (ou ROM ainda não identificada): sem imagem
                 if (of != null) { List<String> sl = src.exists() ? readLines(src) : new ArrayList<String>(); boolean mesma = !sl.isEmpty() && of.equals(sl.get(0)); if (f.length() > 500 && (offline || mesma)) { cb.onCover(g, f); continue; } if (offline) { if (old.length() > 500) cb.onCover(g, old); continue; } f.delete(); for (String c : candidatos(of)) { if (cancel) return; if (download(c, f)) { writeText(src, of); cb.onCover(g, f); break; } } continue; }
                 if (f.length() > 500) { cb.onCover(g, f); continue; }
                 if (old.length() > 500) { cb.onCover(g, old); continue; }
