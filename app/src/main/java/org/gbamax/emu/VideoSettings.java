@@ -78,6 +78,7 @@ public class VideoSettings {
         resume = p.getBoolean("resume", true);
         autoOn = p.getBoolean("autoOn", true);
         autoSecs = p.getInt("autoSecs", 60);
+        ShaderSources.padrao(c);
     }
 
     public static void save(Context c) {

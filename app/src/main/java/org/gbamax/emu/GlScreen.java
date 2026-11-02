@@ -495,6 +495,7 @@ public class GlScreen extends GLSurfaceView implements GLSurfaceView.Renderer {
         }
         p.slang = slang;
         p.uintFrame = UINTF.matcher(vs).find() || UINTF.matcher(fs).find();
+        ShaderSources.xmlAttrs(sf, s, p);
         return p;
     }
 
