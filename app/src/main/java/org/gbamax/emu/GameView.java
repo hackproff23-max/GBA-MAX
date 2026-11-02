@@ -202,7 +202,7 @@ public class GameView extends View {
         return q;
     }
 
-    /** Mancha de luz branca que some nas bordas, criada uma vez só. */
+    /** Mancha escura de tecla afundada: miolo cheio e borda curta, criada uma vez só. */
     Bitmap halo2() {
         if (halo2 == null) {
             int s = 128;
@@ -210,7 +210,7 @@ public class GameView extends View {
             Canvas hc = new Canvas(halo2);
             Paint hp = new Paint(Paint.ANTI_ALIAS_FLAG);
             hp.setShader(new RadialGradient(s / 2f, s / 2f, s / 2f,
-                    new int[]{0xFFFFFFFF, 0xDDFFFFFF, 0x00FFFFFF}, new float[]{0f, 0.45f, 1f}, Shader.TileMode.CLAMP));
+                    new int[]{0xFF141A26, 0xFF141A26, 0x00141A26}, new float[]{0f, 0.62f, 1f}, Shader.TileMode.CLAMP));
             hc.drawCircle(s / 2f, s / 2f, s / 2f, hp);
         }
         return halo2;
@@ -801,13 +801,13 @@ public class GameView extends View {
             bp.setAlpha(h ? 90 : 255);
             sr.set(ccx - cr, ccy - cr, ccx + cr, ccy + cr);
             if (!h && !editing && cgl > 0f && (cgx != 0 || cgy != 0)) {
-                // cada tecla acende sozinha; os cantos só acendem com duas direções juntas
+                // cada tecla afunda sozinha (escurece); os cantos só com duas direções juntas
                 int sv = c.saveLayer(sr, null);
                 c.drawBitmap(skDpad, null, sr, bp);
                 boolean diag = cgx != 0 && cgy != 0;
-                float o = cr * (diag ? 0.52f : 0.6f), R = cr * (diag ? 0.5f : 0.66f);
+                float o = cr * (diag ? 0.52f : 0.6f), R = cr * (diag ? 0.55f : 0.7f);
                 float gx = ccx + cgx * o, gy = ccy + cgy * o;
-                gp.setAlpha((int) (Math.min(1f, cgl) * 245));
+                gp.setAlpha((int) (Math.min(1f, cgl) * 150));
                 tmp.set(gx - R, gy - R, gx + R, gy + R);
                 c.drawBitmap(halo2(), null, tmp, gp);
                 c.restoreToCount(sv);
