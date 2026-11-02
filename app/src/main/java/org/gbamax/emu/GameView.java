@@ -180,6 +180,7 @@ public class GameView extends View {
     }
 
     boolean isHid(int i) { return ((hidden >> i) & 1) != 0; }
+    int baseOf(int i, boolean ed) { return EditorUi.baseOf(this, i, ed); }
 
     // ================= brilho ao apertar =================
     /** Bolinha de luz (branco quente que some nas bordas), criada uma vez só. */
@@ -534,6 +535,7 @@ public class GameView extends View {
 
     // ================= edição =================
     public void startEdit(Runnable done) {
+        EditorUi.begin(this);
         editing = true;
         onEditDone = done;
         sel = -1;
@@ -546,6 +548,7 @@ public class GameView extends View {
     }
 
     public void cancelEdit() {
+        EditorUi.cancel(this);
         editing = false;
         pop = false;
         panel = 0;
@@ -624,7 +627,9 @@ public class GameView extends View {
         sel = to;
     }
 
-    boolean editTouch(MotionEvent e) {
+    boolean editTouch(MotionEvent e) { return EditorUi.touch(this, e); }
+
+    boolean editTouchOld(MotionEvent e) {
         float x = e.getX(), y = e.getY();
         switch (e.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
@@ -732,7 +737,9 @@ public class GameView extends View {
         invalidate();
     }
 
-    void drawEdit(Canvas c) {
+    void drawEdit(Canvas c) { EditorUi.draw(this, c); }
+
+    void drawEditOld(Canvas c) {
         c.drawColor(0x55000000);
         // área da tela do jogo
         p.setStyle(Paint.Style.FILL);
@@ -900,7 +907,7 @@ public class GameView extends View {
         p.setStrokeWidth(3);
         if (!isHid(DPAD) || ed) {
             boolean h = isHid(DPAD);
-            int sv = layerAt(c, dcx, dcy, dr, base + (!h && knob ? 10 : 0));
+            int sv = layerAt(c, dcx, dcy, dr, baseOf(DPAD, ed) + (!h && knob ? 10 : 0));
             float kcx = !h && knob ? kx : dcx, kcy = !h && knob ? ky : dcy;
             if (skAnalog != null) {
                 bp.setColorFilter(null);
@@ -935,7 +942,7 @@ public class GameView extends View {
             float[] cg = {cgl};
             if (ease(cg, 0, cm != 0)) anim = true;
             cgl = cg[0];
-            drawCrossLayered(c, isHid(DPC), base, ed);
+            drawCrossLayered(c, isHid(DPC), baseOf(DPC, ed), ed);
         }
         for (int i = 0; i < 15; i++) {
             boolean h = isHid(i);
@@ -945,7 +952,7 @@ public class GameView extends View {
             if (ease(glow, i, on)) anim = true;
             float lum = ed || h ? 0f : glow[i];
             // 70% parado -> 80% apertado (sobe junto com o brilho)
-            int sv = layerAt(c, px[i], py[i], pr[i], base + Math.round(10 * lum));
+            int sv = layerAt(c, px[i], py[i], pr[i], baseOf(i, ed) + Math.round(10 * lum));
             Bitmap sk = on && skOn[i] != null ? skOn[i] : skB[i];
             if (sk != null) {
                 float rr = pr[i];
@@ -971,7 +978,7 @@ public class GameView extends View {
             c.drawText(LAB[i], px[i], py[i] + ts * 0.35f, p);
             c.restoreToCount(sv);
         }
-        if (ed && panel != 0) drawPanel(c);
+        if (ed) EditorUi.drawTop(this, c);
         if (anim && !ed) postInvalidateOnAnimation();
     }
 
