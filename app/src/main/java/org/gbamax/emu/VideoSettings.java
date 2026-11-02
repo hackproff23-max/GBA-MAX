@@ -16,10 +16,13 @@ import java.io.OutputStream;
 
 /**
  * Configurações de vídeo/áudio/controle.
- * Fora do jogo: SharedPreferences (valores padrão).
- * Dentro do jogo: um arquivo GBA-MAX/Configurações/<nome do jogo>.json com tudo do jogo.
+ * Valem para TODOS os jogos: ficam em SharedPreferences (um conjunto só).
+ * (O antigo arquivo GBA-MAX/Configurações/NOME.json por jogo não é mais usado.)
  */
 public class VideoSettings {
+    /** false = as configurações são iguais para todos os jogos. */
+    static final boolean POR_JOGO = false;
+
     // 0 = automática, 1 = retrato, 2 = paisagem (vale só dentro do jogo e do editor de layout)
     public static volatile int orient = 0;
     // 0 = desligado; 1..4 = pula N quadros a cada quadro mostrado
@@ -47,7 +50,7 @@ public class VideoSettings {
     public static volatile boolean autoOn = true;
     public static volatile int autoSecs = 60;
 
-    /** Nome do jogo aberto (null = fora do jogo, usa as configurações padrão). */
+    /** Nome do jogo aberto (null = fora do jogo). Só informativo: as configurações não mudam por jogo. */
     public static volatile String game = null;
     static String gLayoutP, gLayoutL;
     static volatile boolean shaderPadrao = true; static String shaderBase = "";
@@ -76,7 +79,7 @@ public class VideoSettings {
     }
 
     public static void save(Context c) {
-        if (game != null) {
+        if (POR_JOGO && game != null) {
             File jf = jsonFile(c);
             if (jf != null && writeJson(jf)) return;
         }
@@ -90,19 +93,21 @@ public class VideoSettings {
                 .putBoolean("autoOn", autoOn).putInt("autoSecs", autoSecs).apply();
     }
 
-    // ================= configuração própria de cada jogo (.json) =================
-    /** Abre as configurações do jogo: parte das padrão e aplica o .json dele (cria na primeira vez). */
+    // ================= abrir / fechar jogo =================
+    /** Abre um jogo: usa as mesmas configurações de todos os jogos (nada é lido nem gravado por jogo). */
     public static void openGame(Context c, String nome) {
         load(c);
+        game = nome;
+        if (!POR_JOGO) { gLayoutP = null; gLayoutL = null; return; }
         gLayoutP = sp(c).getString("layout_p", null);
         gLayoutL = sp(c).getString("layout_l", null);
-        shaderBase = shader; shaderPadrao = true; game = nome;
+        shaderBase = shader; shaderPadrao = true;
         File jf = jsonFile(c);
         if (jf == null) { game = null; return; } // sem acesso à pasta: usa as padrão
         if (jf.isFile()) readJson(jf); else writeJson(jf);
     }
 
-    /** Sai do jogo: volta às configurações padrão. */
+    /** Sai do jogo: recarrega as configurações. */
     public static void closeGame(Context c) {
         game = null;
         load(c);
@@ -178,9 +183,9 @@ public class VideoSettings {
     }
 
     static JSONObject jogoObj(Context c, String nome) { try { File d = Pastas.dir(c, Pastas.CONFIG); if (d == null) return null; File f = new File(d, Pastas.seguro(nome) + ".json"); if (!f.isFile()) return new JSONObject(); ByteArrayOutputStream b = new ByteArrayOutputStream(); try (InputStream in = new FileInputStream(f)) { byte[] t = new byte[4096]; int k; while ((k = in.read(t)) != -1) b.write(t, 0, k); } return new JSONObject(b.toString("UTF-8")); } catch (Exception e) { return new JSONObject(); } }
-    static boolean shaderPadraoDoJogo(Context c, String nome) { JSONObject o = jogoObj(c, nome); return o == null || o.length() == 0 || o.optBoolean("shader_padrao", false); }
-    static String shaderNomeDoJogo(Context c, String nome) { JSONObject o = jogoObj(c, nome); return o == null ? "" : o.optString("shader", ""); }
-    static void shaderDoJogo(Context c, String nome, boolean padrao, String sh) { try { File d = Pastas.dir(c, Pastas.CONFIG); if (d == null) return; JSONObject o = jogoObj(c, nome); o.put("shader", sh == null ? "" : sh); o.put("shader_padrao", padrao); try (OutputStream w = new FileOutputStream(new File(d, Pastas.seguro(nome) + ".json"))) { w.write(o.toString(2).getBytes("UTF-8")); } } catch (Exception e) { } }
+    static boolean shaderPadraoDoJogo(Context c, String nome) { if (!POR_JOGO) return true; JSONObject o = jogoObj(c, nome); return o == null || o.length() == 0 || o.optBoolean("shader_padrao", false); }
+    static String shaderNomeDoJogo(Context c, String nome) { if (!POR_JOGO) return shader == null ? "" : shader; JSONObject o = jogoObj(c, nome); return o == null ? "" : o.optString("shader", ""); }
+    static void shaderDoJogo(Context c, String nome, boolean padrao, String sh) { if (!POR_JOGO) return; try { File d = Pastas.dir(c, Pastas.CONFIG); if (d == null) return; JSONObject o = jogoObj(c, nome); o.put("shader", sh == null ? "" : sh); o.put("shader_padrao", padrao); try (OutputStream w = new FileOutputStream(new File(d, Pastas.seguro(nome) + ".json"))) { w.write(o.toString(2).getBytes("UTF-8")); } } catch (Exception e) { } }
     public static void resetColors() { bright = 0; contrast = 100; sat = 100; gamma = 100; lcd = 0; }
 
     /** Orientação escolhida pelo usuário: usada só no jogo e no editor de layout. */
@@ -196,14 +201,14 @@ public class VideoSettings {
         a.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT);
     }
 
-    // layout dos controles/tela, um por orientação (dentro do jogo, vale só para aquele jogo)
+    // layout dos controles/tela, um por orientação (igual para todos os jogos)
     public static String getLayout(Context c, boolean land) {
-        if (game != null) return land ? gLayoutL : gLayoutP;
+        if (POR_JOGO && game != null) return land ? gLayoutL : gLayoutP;
         return sp(c).getString(land ? "layout_l" : "layout_p", null);
     }
 
     public static void setLayout(Context c, boolean land, String s) {
-        if (game != null) {
+        if (POR_JOGO && game != null) {
             if (land) gLayoutL = s; else gLayoutP = s;
             File jf = jsonFile(c);
             if (jf != null) writeJson(jf);

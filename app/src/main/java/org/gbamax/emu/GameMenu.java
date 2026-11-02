@@ -316,15 +316,11 @@ class GameMenu {
         l.addView(row(MenuView.Icons.PAD, 0xFF2EAD4B, "Iniciar jogo", VideoSettings.resume ? "Continua de onde você parou" : "Abre o jogo", () -> { dismissAll(); a.skipResume = false; a.pendingSlot = 0; a.playGame(g); }), lp());
         l.addView(row(MenuView.Icons.HOME, 0xFF1E6BE6, "Reiniciar jogo", "Começa do início (os saves ficam)", () -> { dismissAll(); a.skipResume = true; a.pendingSlot = 0; a.playGame(g); }), lp());
         l.addView(row(MenuView.Icons.LIB, 0xFFFFA000, "Estados salvos", "Escolher um estado para abrir", () -> estados(g)), lp());
-        l.addView(row(MenuView.Icons.FACE, 0xFFE91E63, "Shader", shaderSub(g), () -> escolherShader(g)), lp());
         l.addView(row(MenuView.Icons.LIB, 0xFF00897B, "Capa do jogo", "Importar imagem da galeria", () -> CapaCustom.escolher(a, g)), lp());
         l.addView(row(MenuView.Icons.CHEAT, 0xFFFFA000, "Cheats", "Ligar e desligar códigos deste jogo", () -> new CheatMenu(this, Pastas.seguro(g.name), false).show()), lp());
         l.addView(row(MenuView.Icons.SAVE, 0xFFE53935, "Apagar save", "Remove o save e os estados do jogo", () -> confirm("Apagar save", "O save e todos os estados salvos (manuais, automáticos e retomar) de " + Pasta.exibir(g.name) + " serão apagados. Não dá para desfazer.", () -> { a.apagarSaves(g); toast("Save apagado"); })), lp());
-        pageDialog(Pasta.exibir(g.name), l, 7, null).show();
+        pageDialog(Pasta.exibir(g.name), l, 6, null).show();
     }
-    String shaderNome(String s) { return s == null || s.isEmpty() ? "Nenhum" : s.substring(s.lastIndexOf(47) + 1); }
-    String shaderSub(MenuView.Game g) { return VideoSettings.shaderPadraoDoJogo(c, g.name) ? "Padrão (" + shaderNome(VideoSettings.shader) + ")" : "Só este jogo: " + shaderNome(VideoSettings.shaderNomeDoJogo(c, g.name)); }
-    void escolherShader(final MenuView.Game g) { dismissAll(); final String PAD = "★ Usar o padrão (" + shaderNome(VideoSettings.shader) + ")"; final List<String> all = new ArrayList<>(); all.add(PAD); all.add(""); all.addAll(ShaderStore.listLocal(c)); VideoMenu vm = new VideoMenu(mv) { @Override void show() { gameWindow(g); } }; String cur = VideoSettings.shaderPadraoDoJogo(c, g.name) ? PAD : VideoSettings.shaderNomeDoJogo(c, g.name); vm.listDialog("Shader de " + Pasta.exibir(g.name), all, cur, true, i -> { VideoSettings.shaderDoJogo(c, g.name, i == 0, i == 0 ? "" : all.get(i)); toast(i == 0 ? "Usando o shader padrão" : "Shader salvo só para este jogo"); gameWindow(g); }, null); }
     void estados(final MenuView.Game g) {
         final String b = a.stBaseFor(g.name);
         LinearLayout l = new HoverList(c);

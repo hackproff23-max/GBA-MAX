@@ -4,9 +4,12 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.LightingColorFilter;
 import android.graphics.Paint;
 import android.graphics.Path;
+import android.graphics.RadialGradient;
 import android.graphics.RectF;
+import android.graphics.Shader;
 import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
 import android.view.View;
@@ -69,6 +72,12 @@ public class GameView extends View {
     int pressed, vw, vh;
     final float den;
     final int slop;
+
+    // brilho animado ao apertar: 0 = apagado, 1 = aceso (um valor por botão e um para o D-pad)
+    final float[] glow = new float[15];
+    float cgl, cgx, cgy;
+    Bitmap halo;
+    final LightingColorFilter[] lf = new LightingColorFilter[17];
 
     // modo de edição
     volatile boolean editing;
@@ -154,6 +163,45 @@ public class GameView extends View {
     }
 
     boolean isHid(int i) { return ((hidden >> i) & 1) != 0; }
+
+    // ================= brilho ao apertar =================
+    /** Bolinha de luz (branco quente que some nas bordas), criada uma vez só. */
+    Bitmap halo() {
+        if (halo == null) {
+            int s = 128;
+            halo = Bitmap.createBitmap(s, s, Bitmap.Config.ARGB_8888);
+            Canvas hc = new Canvas(halo);
+            Paint hp = new Paint(Paint.ANTI_ALIAS_FLAG);
+            hp.setShader(new RadialGradient(s / 2f, s / 2f, s / 2f,
+                    new int[]{0xFFFFFFFF, 0xAAFFF0B8, 0x00FFD36B}, new float[]{0.3f, 0.62f, 1f}, Shader.TileMode.CLAMP));
+            hc.drawCircle(s / 2f, s / 2f, s / 2f, hp);
+        }
+        return halo;
+    }
+
+    /** Luz em volta do ponto (x, y); g = intensidade 0..1. */
+    void drawHalo(Canvas c, float x, float y, float r, float g) {
+        float R = r * 1.7f;
+        bp.setColorFilter(null);
+        bp.setAlpha((int) (Math.max(0f, Math.min(1f, g)) * 235));
+        sr.set(x - R, y - R, x + R, y + R);
+        c.drawBitmap(halo(), null, sr, bp);
+    }
+
+    /** Clareia a imagem do botão conforme o brilho (16 níveis, filtros reaproveitados). */
+    LightingColorFilter lighten(float g) {
+        int k = Math.max(0, Math.min(16, Math.round(g * 16)));
+        if (lf[k] == null) lf[k] = new LightingColorFilter(0xFFFFFFFF, (k * 7) * 0x010101);
+        return lf[k];
+    }
+
+    /** Aproxima v do alvo: sobe rápido ao apertar e apaga devagar ao soltar. Devolve true se ainda anima. */
+    static boolean ease(float[] v, int i, boolean on) {
+        float tg = on ? 1f : 0f;
+        v[i] += (tg - v[i]) * (on ? 0.5f : 0.16f);
+        if (Math.abs(tg - v[i]) < 0.02f) { v[i] = tg; return false; }
+        return true;
+    }
 
     // ================= layout =================
     void defaults(int w, int h) {
@@ -712,9 +760,12 @@ public class GameView extends View {
 
     void drawCross(Canvas c, boolean h) {
         if (skDpad != null) {
+            bp.setColorFilter(null);
             bp.setAlpha(h ? 90 : 255);
             sr.set(ccx - cr, ccy - cr, ccx + cr, ccy + cr);
             c.drawBitmap(skDpad, null, sr, bp);
+            // brilho no lado apertado da cruzeta
+            if (!h && !editing && cgl > 0f) drawHalo(c, ccx + cgx * cr * 0.62f, ccy + cgy * cr * 0.62f, cr * 0.5f, cgl);
             return;
         }
         float w = cr * 0.33f, L = cr;
@@ -752,6 +803,7 @@ public class GameView extends View {
     protected void onDraw(Canvas c) {
         if (editing) drawEdit(c);
         boolean ed = editing;
+        boolean anim = false; // ainda tem brilho acendendo/apagando?
         // no editor a opacidade aparece com piso de 35% para os botões continuarem visíveis
         int al = Math.max(ed ? 35 : 10, Math.min(100, VideoSettings.ctlAlpha)) * 255 / 100;
         boolean lay = al < 255;
@@ -761,6 +813,7 @@ public class GameView extends View {
             boolean h = isHid(DPAD);
             float kcx = !h && knob ? kx : dcx, kcy = !h && knob ? ky : dcy;
             if (skAnalog != null) {
+                bp.setColorFilter(null);
                 bp.setAlpha(h ? 90 : 255);
                 sr.set(dcx - dr, dcy - dr, dcx + dr, dcy + dr);
                 c.drawBitmap(skAnalog, null, sr, bp);
@@ -770,6 +823,7 @@ public class GameView extends View {
                 c.drawCircle(dcx, dcy, dr, p);
             }
             if (skKnob != null) {
+                bp.setColorFilter(null);
                 bp.setAlpha(h ? 90 : 255);
                 float kr = dr * 0.4f;
                 sr.set(kcx - kr, kcy - kr, kcx + kr, kcy + kr);
@@ -780,17 +834,34 @@ public class GameView extends View {
                 c.drawCircle(kcx, kcy, dr * 0.4f, p);
             }
         }
-        if (!isHid(DPC) || ed) drawCross(c, isHid(DPC));
+        if (!isHid(DPC) || ed) {
+            // brilho da cruzeta: segue o lado que está apertado e apaga devagar
+            int cm = crossM;
+            if (cm != 0) {
+                cgx = ((cm & RT) != 0 ? 1 : 0) - ((cm & LF) != 0 ? 1 : 0);
+                cgy = ((cm & DN) != 0 ? 1 : 0) - ((cm & UP) != 0 ? 1 : 0);
+            }
+            float[] cg = {cgl};
+            if (ease(cg, 0, cm != 0)) anim = true;
+            cgl = cg[0];
+            drawCross(c, isHid(DPC));
+        }
         for (int i = 0; i < 15; i++) {
             boolean h = isHid(i);
             if (h && !ed) continue;
             boolean on = !h && (((pressed >> i) & 1) != 0 || (COD[i] == FF && ff));
+            // brilho animado: acende rápido ao apertar e apaga devagar ao soltar
+            if (ease(glow, i, on)) anim = true;
+            float lum = ed || h ? 0f : glow[i];
+            if (lum > 0f) drawHalo(c, px[i], py[i], pr[i], lum);
             Bitmap sk = on && skOn[i] != null ? skOn[i] : skB[i];
             if (sk != null) {
-                float rr = on && skOn[i] == null ? pr[i] * 0.92f : pr[i];
+                float rr = pr[i] * (1f + 0.05f * lum);
                 bp.setAlpha(h ? 90 : 255);
+                bp.setColorFilter(lum > 0f ? lighten(lum) : null);
                 sr.set(px[i] - rr, py[i] - rr, px[i] + rr, py[i] + rr);
                 c.drawBitmap(sk, null, sr, bp);
+                bp.setColorFilter(null);
                 continue;
             }
             Path sp = buildShape(px[i], py[i], pr[i], shp[i]);
@@ -808,6 +879,7 @@ public class GameView extends View {
         }
         if (lay) c.restore();
         if (ed && panel != 0) drawPanel(c);
+        if (anim && !ed) postInvalidateOnAnimation();
     }
 
     @Override

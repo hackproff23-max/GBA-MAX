@@ -20,6 +20,7 @@ class GifBg extends View {
         this.menu = menu;
         setLayerType(LAYER_TYPE_SOFTWARE, null); // Movie (GIF) só desenha em software
         movie = carregar(c);
+        if (menu instanceof MenuView) ScrollKeeper.install((MenuView) menu); // lista de jogos mantém a posição
     }
 
     static Movie carregar(Context c) {
