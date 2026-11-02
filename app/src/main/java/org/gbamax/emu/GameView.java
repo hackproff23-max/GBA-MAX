@@ -9,7 +9,9 @@ import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RadialGradient;
 import android.graphics.RectF;
+import android.graphics.Region;
 import android.graphics.Shader;
+import android.os.Build;
 import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
 import android.view.View;
@@ -798,18 +800,54 @@ public class GameView extends View {
         c.drawPath(path, p);
     }
 
+    // zonas apertadas da cruzeta (para o destaque só na direção tocada)
+    final Path zp = new Path();
+
+    /** Abre uma camada com opacidade pct (0..100) em volta de (x, y); devolve o ponto para restoreToCount. */
+    int layerAt(Canvas c, float x, float y, float r, int pct) {
+        float m = r * 1.6f + 8 * den;
+        return c.saveLayerAlpha(x - m, y - m, x + m, y + m, Math.max(0, Math.min(100, pct)) * 255 / 100);
+    }
+
+    /** Cruzeta em base%; só a(s) direção(ões) apertada(s) ficam 10% mais opacas (70% -> 80%). */
+    void drawCrossLayered(Canvas c, boolean h, int base, boolean ed) {
+        int cm = crossM;
+        if (h || ed || cm == 0) {
+            int sv = layerAt(c, ccx, ccy, cr, base);
+            drawCross(c, h);
+            c.restoreToCount(sv);
+            return;
+        }
+        float th = cr * 0.3f, e = cr * 1.5f;
+        zp.reset();
+        if ((cm & UP) != 0) zp.addRect(ccx - e, ccy - e, ccx + e, ccy - th, Path.Direction.CW);
+        if ((cm & DN) != 0) zp.addRect(ccx - e, ccy + th, ccx + e, ccy + e, Path.Direction.CW);
+        if ((cm & LF) != 0) zp.addRect(ccx - e, ccy - e, ccx - th, ccy + e, Path.Direction.CW);
+        if ((cm & RT) != 0) zp.addRect(ccx + th, ccy - e, ccx + e, ccy + e, Path.Direction.CW);
+        // resto da cruzeta na opacidade padrão
+        int sv = layerAt(c, ccx, ccy, cr, base);
+        if (Build.VERSION.SDK_INT >= 26) c.clipOutPath(zp); else c.clipPath(zp, Region.Op.DIFFERENCE);
+        drawCross(c, false);
+        c.restoreToCount(sv);
+        // lado apertado, 10% mais opaco
+        sv = layerAt(c, ccx, ccy, cr, base + 10);
+        c.clipPath(zp);
+        drawCross(c, false);
+        c.restoreToCount(sv);
+    }
+
     @Override
     protected void onDraw(Canvas c) {
         if (editing) drawEdit(c);
         boolean ed = editing;
         boolean anim = false; // ainda tem brilho acendendo/apagando?
-        // no editor a opacidade aparece com piso de 35% para os botões continuarem visíveis
-        int al = Math.max(ed ? 35 : 10, Math.min(100, VideoSettings.ctlAlpha)) * 255 / 100;
-        boolean lay = al < 255;
-        if (lay) c.saveLayerAlpha(0, 0, getWidth(), getHeight(), al);
+        // opacidade padrão (70%); no editor tem piso de 35% para os botões continuarem visíveis
+        // ao apertar, cada botão sobe 10% (80%) em vez de a camada inteira ter uma opacidade só
+        int base = Math.max(ed ? 35 : 10, Math.min(100, VideoSettings.ctlAlpha));
         p.setStrokeWidth(3);
         if (!isHid(DPAD) || ed) {
             boolean h = isHid(DPAD);
+            int sv = layerAt(c, dcx, dcy, dr, base + (!h && knob ? 10 : 0));
             float kcx = !h && knob ? kx : dcx, kcy = !h && knob ? ky : dcy;
             if (skAnalog != null) {
                 bp.setColorFilter(null);
@@ -832,6 +870,7 @@ public class GameView extends View {
                 p.setColor(h ? 0x22FFFFFF : knob ? 0x88FFFFFF : 0x33FFFFFF);
                 c.drawCircle(kcx, kcy, dr * 0.4f, p);
             }
+            c.restoreToCount(sv);
         }
         if (!isHid(DPC) || ed) {
             // brilho da cruzeta: segue o lado que está apertado e apaga devagar
@@ -843,7 +882,7 @@ public class GameView extends View {
             float[] cg = {cgl};
             if (ease(cg, 0, cm != 0)) anim = true;
             cgl = cg[0];
-            drawCross(c, isHid(DPC));
+            drawCrossLayered(c, isHid(DPC), base, ed);
         }
         for (int i = 0; i < 15; i++) {
             boolean h = isHid(i);
@@ -852,6 +891,8 @@ public class GameView extends View {
             // brilho animado: acende rápido ao apertar e apaga devagar ao soltar
             if (ease(glow, i, on)) anim = true;
             float lum = ed || h ? 0f : glow[i];
+            // 70% parado -> 80% apertado (sobe junto com o brilho)
+            int sv = layerAt(c, px[i], py[i], pr[i], base + Math.round(10 * lum));
             Bitmap sk = on && skOn[i] != null ? skOn[i] : skB[i];
             if (sk != null) {
                 float rr = pr[i];
@@ -860,6 +901,7 @@ public class GameView extends View {
                 sr.set(px[i] - rr, py[i] - rr, px[i] + rr, py[i] + rr);
                 c.drawBitmap(sk, null, sr, bp);
                 bp.setColorFilter(null);
+                c.restoreToCount(sv);
                 continue;
             }
             Path sp = buildShape(px[i], py[i], pr[i], shp[i]);
@@ -874,8 +916,8 @@ public class GameView extends View {
             p.setColor(h ? 0x55FFFFFF : 0xDDFFFFFF);
             p.setTextSize(ts);
             c.drawText(LAB[i], px[i], py[i] + ts * 0.35f, p);
+            c.restoreToCount(sv);
         }
-        if (lay) c.restore();
         if (ed && panel != 0) drawPanel(c);
         if (anim && !ed) postInvalidateOnAnimation();
     }

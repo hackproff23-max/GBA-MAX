@@ -40,7 +40,7 @@ public class VideoSettings {
     public static volatile boolean mute = false;
     public static volatile int abuf = 0;       // 0 pequeno, 1 médio, 2 grande
     // controle
-    public static volatile int ctlAlpha = 100; // opacidade dos botões (10..100)
+    public static volatile int ctlAlpha = 70; // opacidade dos botões (10..100)
     public static volatile boolean vibrate = false;
     // avançado
     public static volatile int ffSpeed = 4;    // velocidade do avanço rápido
@@ -70,7 +70,9 @@ public class VideoSettings {
         volume = p.getInt("volume", 100);
         mute = p.getBoolean("mute", false);
         abuf = p.getInt("abuf", 0);
-        ctlAlpha = p.getInt("ctlAlpha", 100);
+        ctlAlpha = p.getInt("ctlAlpha", 70);
+        // uma vez só: passa a opacidade guardada para o novo padrão (70%); depois é só mexer no editor
+        if (!p.getBoolean("alpha70", false)) { ctlAlpha = 70; p.edit().putInt("ctlAlpha", 70).putBoolean("alpha70", true).apply(); }
         vibrate = p.getBoolean("vibrate", false);
         ffSpeed = p.getInt("ffSpeed", 4);
         resume = p.getBoolean("resume", true);
