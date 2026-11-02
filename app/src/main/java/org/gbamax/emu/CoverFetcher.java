@@ -85,6 +85,7 @@ public class CoverFetcher {
                 File f = new File(dir, safe(g.name) + ".jpg");
                 File old = new File(dir, safe(g.name) + ".png"); // capas baixadas em versões antigas
                 File src = new File(dir, safe(g.name) + ".src");
+                if (f.length() > 500 && !src.exists()) { cb.onCover(g, f); continue; } // capa importada por você tem prioridade
                 if (offline && f.length() > 500 && src.exists()) { cb.onCover(g, f); continue; }
                 RomId.Info ri = RomId.info(cr, g.uri, dir);
                 String of = ri == null ? null : RomId.oficial(ri, g.name);
