@@ -143,16 +143,29 @@ public class GameView extends View {
         try { loadSkin(c); } catch (Throwable t) { }
     }
 
-    /** Carrega as imagens personalizadas dos botões (se houver). */
+    /** Skin padrão do app (assets/botoes), usada quando não há imagem personalizada. */
+    static Bitmap assetSkin(Context c, String key) {
+        try (java.io.InputStream in = c.getAssets().open("botoes/" + key + ".png")) {
+            return android.graphics.BitmapFactory.decodeStream(in);
+        } catch (Throwable t) { return null; }
+    }
+
+    /** Imagem personalizada, ou a skin padrão se não houver. */
+    static Bitmap skin(Context c, java.io.File d, String key) {
+        Bitmap b = Personalizar.bmp(d, key);
+        return b != null ? b : assetSkin(c, key);
+    }
+
+    /** Carrega as imagens dos botões: personalizadas (se houver) ou a skin padrão. */
     void loadSkin(Context c) {
         java.io.File d = Personalizar.botoes(c);
         for (int i = 0; i < 15; i++) {
-            skB[i] = Personalizar.bmp(d, Personalizar.KEYS[i]);
+            skB[i] = skin(c, d, Personalizar.KEYS[i]);
             skOn[i] = Personalizar.bmp(d, Personalizar.KEYS[i] + "_on");
         }
-        skDpad = Personalizar.bmp(d, Personalizar.DPAD);
-        skAnalog = Personalizar.bmp(d, Personalizar.ANALOG);
-        skKnob = Personalizar.bmp(d, Personalizar.KNOB);
+        skDpad = skin(c, d, Personalizar.DPAD);
+        skAnalog = skin(c, d, Personalizar.ANALOG);
+        skKnob = skin(c, d, Personalizar.KNOB);
         postInvalidate();
     }
 
