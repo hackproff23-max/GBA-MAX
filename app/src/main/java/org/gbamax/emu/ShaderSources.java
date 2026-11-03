@@ -165,7 +165,7 @@ final class ShaderSources {
     }
 
     /** Instala o 2xbr.shader (assets) em Shaders/padrao e, uma única vez, o escolhe como shader padrão. */
-    static void padrao(Context c) {
+    static void padrao(Context c) { Padrao3x.instalar(c);
         try {
             String rel = "padrao/2xbr.shader";
             File out = new File(ShaderStore.root(c), rel);

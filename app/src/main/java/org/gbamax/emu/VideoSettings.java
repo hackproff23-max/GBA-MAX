@@ -40,7 +40,7 @@ public class VideoSettings {
     public static volatile boolean mute = false;
     public static volatile int abuf = 0;       // 0 pequeno, 1 médio, 2 grande
     // controle
-    public static volatile int ctlAlpha = 70; // opacidade dos botões (10..100)
+    public static volatile int ctlAlpha = 50;  // opacidade dos botões (10..100)
     public static volatile boolean vibrate = false;
     // avançado
     public static volatile int ffSpeed = 4;    // velocidade do avanço rápido
@@ -70,15 +70,12 @@ public class VideoSettings {
         volume = p.getInt("volume", 100);
         mute = p.getBoolean("mute", false);
         abuf = p.getInt("abuf", 0);
-        ctlAlpha = p.getInt("ctlAlpha", 70);
-        // uma vez só: passa a opacidade guardada para o novo padrão (70%); depois é só mexer no editor
-        if (!p.getBoolean("alpha70", false)) { ctlAlpha = 70; p.edit().putInt("ctlAlpha", 70).putBoolean("alpha70", true).apply(); }
+        ctlAlpha = p.getInt("opac50", 50);
         vibrate = p.getBoolean("vibrate", false);
         ffSpeed = p.getInt("ffSpeed", 4);
         resume = p.getBoolean("resume", true);
         autoOn = p.getBoolean("autoOn", true);
         autoSecs = p.getInt("autoSecs", 60);
-        ShaderSources.padrao(c);
     }
 
     public static void save(Context c) {
@@ -91,7 +88,7 @@ public class VideoSettings {
                 .putInt("contrast", contrast).putInt("sat", sat)
                 .putInt("gamma", gamma).putInt("lcd", lcd)
                 .putInt("volume", volume).putBoolean("mute", mute).putInt("abuf", abuf)
-                .putInt("ctlAlpha", ctlAlpha).putBoolean("vibrate", vibrate)
+                .putInt("opac50", ctlAlpha).putBoolean("vibrate", vibrate)
                 .putInt("ffSpeed", ffSpeed).putBoolean("resume", resume)
                 .putBoolean("autoOn", autoOn).putInt("autoSecs", autoSecs).apply();
     }
@@ -102,8 +99,8 @@ public class VideoSettings {
         load(c);
         game = nome;
         if (!POR_JOGO) { gLayoutP = null; gLayoutL = null; return; }
-        gLayoutP = sp(c).getString("layout_p", null);
-        gLayoutL = sp(c).getString("layout_l", null);
+        gLayoutP = sp(c).getString("lay2_p", null);
+        gLayoutL = sp(c).getString("lay2_l", null);
         shaderBase = shader; shaderPadrao = true;
         File jf = jsonFile(c);
         if (jf == null) { game = null; return; } // sem acesso à pasta: usa as padrão
@@ -143,8 +140,8 @@ public class VideoSettings {
             o.put("resume", resume);
             o.put("autoOn", autoOn);
             o.put("autoSecs", autoSecs);
-            if (gLayoutP != null) o.put("layout_p", gLayoutP);
-            if (gLayoutL != null) o.put("layout_l", gLayoutL);
+            if (gLayoutP != null) o.put("lay2_p", gLayoutP);
+            if (gLayoutL != null) o.put("lay2_l", gLayoutL);
             try (OutputStream w = new FileOutputStream(f)) {
                 w.write(o.toString(2).getBytes("UTF-8"));
             }
@@ -180,8 +177,8 @@ public class VideoSettings {
             resume = o.optBoolean("resume", resume);
             autoOn = o.optBoolean("autoOn", autoOn);
             autoSecs = o.optInt("autoSecs", autoSecs);
-            if (o.has("layout_p")) gLayoutP = o.getString("layout_p");
-            if (o.has("layout_l")) gLayoutL = o.getString("layout_l");
+            if (o.has("lay2_p")) gLayoutP = o.getString("lay2_p");
+            if (o.has("lay2_l")) gLayoutL = o.getString("lay2_l");
         } catch (Exception e) { }
     }
 
@@ -207,7 +204,7 @@ public class VideoSettings {
     // layout dos controles/tela, um por orientação (igual para todos os jogos)
     public static String getLayout(Context c, boolean land) {
         if (POR_JOGO && game != null) return land ? gLayoutL : gLayoutP;
-        return sp(c).getString(land ? "layout_l" : "layout_p", null);
+        return sp(c).getString(land ? "lay2_l" : "lay2_p", null);
     }
 
     public static void setLayout(Context c, boolean land, String s) {
@@ -218,7 +215,7 @@ public class VideoSettings {
             return;
         }
         SharedPreferences.Editor e = sp(c).edit();
-        if (s == null) e.remove(land ? "layout_l" : "layout_p"); else e.putString(land ? "layout_l" : "layout_p", s);
+        if (s == null) e.remove(land ? "lay2_l" : "lay2_p"); else e.putString(land ? "lay2_l" : "lay2_p", s);
         e.apply();
     }
 }
