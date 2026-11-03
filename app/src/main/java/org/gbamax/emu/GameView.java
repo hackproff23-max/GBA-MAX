@@ -997,8 +997,8 @@ public class GameView extends View {
                     double d = Math.hypot(dx, dy);
                     if (d < dr * 1.5) {
                         if (d > dr * 0.25) {
-                            int s = (int) Math.round(Math.atan2(dy, dx) / (Math.PI / 4));
-                            m |= DIRS[(s + 8) % 8];
+                            int s = (int) Math.round(Math.atan2(dy, dx) / (Math.PI / 2));
+                            m |= DIRS[((s + 4) % 4) * 2];
                         }
                         double q = Math.min(d, dr);
                         k = true;

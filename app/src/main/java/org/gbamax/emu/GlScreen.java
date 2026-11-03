@@ -44,6 +44,7 @@ public class GlScreen extends GLSurfaceView implements GLSurfaceView.Renderer {
     int surfW = 1, surfH = 1, vbo, vbo2;
     final Tex src = new Tex();
     int cProg, cTex, cBr, cCt, cSat, cGm, cLcd, cSrc;
+    int fProg, fTex; static volatile long maxPx;
     List<Pass> chain;
     Map<String, Tex> luts = new HashMap<>();
     Map<String, Float> params = new LinkedHashMap<>();
@@ -69,8 +70,8 @@ public class GlScreen extends GLSurfaceView implements GLSurfaceView.Renderer {
 
     static final String CV = "attribute vec4 a_pos; varying vec2 v_uv;\n"
             + "void main(){ v_uv = a_pos.xy; gl_Position = vec4(a_pos.xy * 2.0 - 1.0, 0.0, 1.0); }\n";
-    static final String CF = "precision highp float; varying vec2 v_uv; uniform sampler2D u_tex;\n"
-            + "uniform float u_br, u_ct, u_sat, u_gm, u_lcd; uniform vec2 u_src;\n"
+    static final String CF = "precision mediump float; varying highp vec2 v_uv; uniform sampler2D u_tex;\n"
+            + "uniform float u_br, u_ct, u_sat, u_gm, u_lcd; uniform highp vec2 u_src;\n"
             + "void main(){\n"
             + "  vec3 c = texture2D(u_tex, v_uv).rgb;\n"
             + "  c = pow(clamp(c, 0.0, 1.0), vec3(1.0 / u_gm));\n"
@@ -87,11 +88,14 @@ public class GlScreen extends GLSurfaceView implements GLSurfaceView.Renderer {
 
     static final Pattern PARAM = Pattern.compile("#pragma\\s+parameter\\s+(\\w+)\\s+\"[^\"]*\"\\s+([-+0-9.eE]+)");
     static final Pattern UINTF = Pattern.compile("\\buint\\s+FrameCount\\b");
+    static final String CFAST = "precision mediump float; varying highp vec2 v_uv; uniform sampler2D u_tex;\n"
+            + "void main(){ gl_FragColor = vec4(texture2D(u_tex, v_uv).rgb, 1.0); }\n";
 
     public GlScreen(Context c) {
         super(c);
         shaderRoot = ShaderStore.root(c);
         setEGLContextClientVersion(3);
+        setEGLConfigChooser(8, 8, 8, 0, 0, 0);
         setPreserveEGLContextOnPause(true);
         setRenderer(this);
         setRenderMode(RENDERMODE_WHEN_DIRTY);
@@ -113,6 +117,7 @@ public class GlScreen extends GLSurfaceView implements GLSurfaceView.Renderer {
     // ================= ciclo de vida GL =================
     @Override
     public void onSurfaceCreated(GL10 gl, EGLConfig cfg) {
+        try { String rn = GLES30.glGetString(GLES30.GL_RENDERER); maxPx = rn != null && fraca(rn) ? 500000L : 0L; GLES30.glDisable(GLES30.GL_DITHER); } catch (Throwable t0) { maxPx = 0; }
         chain = null;
         luts = new HashMap<>();
         params = new LinkedHashMap<>();
@@ -125,6 +130,7 @@ public class GlScreen extends GLSurfaceView implements GLSurfaceView.Renderer {
             cGm = GLES30.glGetUniformLocation(cProg, "u_gm");
             cLcd = GLES30.glGetUniformLocation(cProg, "u_lcd");
             cSrc = GLES30.glGetUniformLocation(cProg, "u_src");
+            try { fProg = link(CV, CFAST); fTex = GLES30.glGetUniformLocation(fProg, "u_tex"); } catch (Throwable t1) { fProg = 0; }
         } catch (Throwable t) {
             cProg = 0;
             report("Erro ao iniciar vídeo: " + t.getMessage());
@@ -211,17 +217,19 @@ public class GlScreen extends GLSurfaceView implements GLSurfaceView.Renderer {
         GLES30.glClearColor(0, 0, 0, 1);
         GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT);
         GLES30.glViewport(vx, vy, vw, vh);
-        GLES30.glUseProgram(cProg);
+        final boolean neutro = fProg != 0 && VideoSettings.bright == 0 && VideoSettings.contrast == 100 && VideoSettings.sat == 100 && VideoSettings.gamma == 100 && VideoSettings.lcd == 0; GLES30.glUseProgram(neutro ? fProg : cProg);
         GLES30.glActiveTexture(GLES30.GL_TEXTURE0);
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, in.id);
         setTexParams(true, GLES30.GL_CLAMP_TO_EDGE);
-        GLES30.glUniform1i(cTex, 0);
+        GLES30.glUniform1i(neutro ? fTex : cTex, 0);
+        if (!neutro) {
         GLES30.glUniform1f(cBr, VideoSettings.bright / 200f);
         GLES30.glUniform1f(cCt, VideoSettings.contrast / 100f);
         GLES30.glUniform1f(cSat, VideoSettings.sat / 100f);
         GLES30.glUniform1f(cGm, Math.max(0.1f, VideoSettings.gamma / 100f));
         GLES30.glUniform1f(cLcd, VideoSettings.lcd / 100f);
         GLES30.glUniform2f(cSrc, 240f, 160f);
+        }
         GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4);
     }
 
@@ -231,6 +239,7 @@ public class GlScreen extends GLSurfaceView implements GLSurfaceView.Renderer {
         int ty = p.sty >= 0 ? p.sty : (last ? 1 : 0);
         float w = tx == 0 ? in.w * p.sx : tx == 1 ? vw * p.sx : p.sx;
         float h = ty == 0 ? in.h * p.sy : ty == 1 ? vh * p.sy : p.sy;
+        if (maxPx > 0 && (tx == 1 || ty == 1) && (double) w * h > maxPx) { float k = (float) Math.sqrt(maxPx / ((double) w * h)); w *= k; h *= k; }
         return new int[]{Math.max(1, Math.round(w)), Math.max(1, Math.round(h))};
     }
 
@@ -580,6 +589,7 @@ public class GlScreen extends GLSurfaceView implements GLSurfaceView.Renderer {
     }
 
     // ================= utilitários =================
+    static boolean fraca(String r) { String s = r.toLowerCase(java.util.Locale.ROOT); for (String k : new String[]{"mali-4", "mali-t6", "mali-t7", "adreno (tm) 3", "adreno (tm) 4", "powervr", "videocore", "vivante"}) if (s.contains(k)) return true; return false; }
     static String nz(String s) { return s == null ? "" : s.trim(); }
 
     static int toInt(String s, int d) {

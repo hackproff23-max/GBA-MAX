@@ -41,6 +41,7 @@ static volatile bool skipv = false;
 static double sr = 32768;
 static std::string sysdir;
 
+static uint8_t L5[32], L6[64]; static struct LutInit { LutInit() { for (int i = 0; i < 32; i++) L5[i] = (uint8_t)(i * 255 / 31); for (int i = 0; i < 64; i++) L6[i] = (uint8_t)(i * 255 / 63); } } lutInit;
 static bool env(unsigned cmd, void* d) {
     switch (cmd) {
         case RETRO_ENVIRONMENT_SET_PIXEL_FORMAT: fmt = *(int*)d; return true;
@@ -72,8 +73,8 @@ static void video(const void* d, unsigned w, unsigned h, size_t pitch) {
             const uint16_t* q = (const uint16_t*)s;
             for (unsigned x = 0; x < w; x++) {
                 uint32_t v = q[x], r, gg, b;
-                if (fmt == 2) { r = (v >> 11) * 255 / 31; gg = ((v >> 5) & 63) * 255 / 63; b = (v & 31) * 255 / 31; }
-                else { r = ((v >> 10) & 31) * 255 / 31; gg = ((v >> 5) & 31) * 255 / 31; b = (v & 31) * 255 / 31; }
+                if (fmt == 2) { r = L5[v >> 11]; gg = L6[(v >> 5) & 63]; b = L5[v & 31]; }
+                else { r = L5[(v >> 10) & 31]; gg = L5[(v >> 5) & 31]; b = L5[v & 31]; }
                 o[x] = 0xFF000000 | (b << 16) | (gg << 8) | r;
             }
         }

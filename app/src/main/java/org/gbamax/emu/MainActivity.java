@@ -1014,9 +1014,9 @@ public class MainActivity extends Activity {
         int frame = 0, shown = 0;
         short[] ffb = new short[8192 * 8], ffo = new short[8192 * 8];
         int ffn = 0; float ffAcc = 0;
-        final long T = 16743000L; // ~59.73 fps
+        final long T = 16743000L; long due = System.nanoTime(); int streak = 0; // ~59.73 fps
         while (run) {
-            long t0 = System.nanoTime(); beat = t0; observar(frame);
+            long t0 = System.nanoTime(); beat = t0; observar(frame); boolean atras = t0 - due > T; if (t0 - due > 4 * T) { due = t0; atras = false; }
             boolean f = gv.ff;
             int n = 1; if (f) { if (VideoSettings.ffSpeed == 1) { ffAcc += 1.5f; n = (int) ffAcc; ffAcc -= n; } else n = Math.max(2, VideoSettings.ffSpeed); }
             int fs = VideoSettings.frameskip; // pulo de quadros
@@ -1024,7 +1024,7 @@ public class MainActivity extends Activity {
                 frame++;
                 boolean last = i == n - 1;
                 boolean skip = !last;
-                if (last) { shown++; skip = fs > 0 && (shown % (fs + 1)) != 0; }
+                if (last) { shown++; skip = fs > 0 && (shown % (fs + 1)) != 0; if (!skip && atras && streak < 3) { skip = true; streak++; } else if (!skip) streak = 0; }
                 Native.setSkip(skip);
                 int mk = gv.mask(frame); lastMask = mk; Native.input(mk);
                 Native.run();
@@ -1043,7 +1043,7 @@ public class MainActivity extends Activity {
                 if (pr > 0) at.write(ffo, 0, pr * 2);
                 ffn = 0;
             }
-            long r = T - (System.nanoTime() - t0);
+            due += T; long r = due - System.nanoTime();
             if (r > 0) LockSupport.parkNanos(r);
             autoNs += System.nanoTime() - t0;
             if (!VideoSettings.autoOn) autoNs = 0;

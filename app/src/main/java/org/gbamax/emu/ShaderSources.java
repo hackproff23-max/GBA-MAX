@@ -172,7 +172,9 @@ final class ShaderSources {
             if (!out.isFile()) {
                 try (InputStream in = c.getAssets().open("2xbr.shader")) { ShaderStore.copy(in, out); }
             }
+            for (String nm : new String[]{"xbrz-lite.shader", "xbrz-lite-2x.shader"}) { File o2 = new File(ShaderStore.root(c), "padrao/" + nm); if (!o2.isFile()) { try (InputStream in2 = c.getAssets().open(nm)) { ShaderStore.copy(in2, o2); } catch (Exception e2) { } } }
             SharedPreferences p = c.getSharedPreferences("gbamax_video", 0);
+            if (!p.getBoolean("padrao_lite", false)) { String lt = "padrao/xbrz-lite.shader"; if (VideoSettings.shader == null || VideoSettings.shader.isEmpty() || VideoSettings.shader.equals(rel)) { VideoSettings.shader = lt; p.edit().putString("shader", lt).apply(); } p.edit().putBoolean("padrao_lite", true).apply(); }
             if (p.getBoolean("padrao_2xbr", false)) return;
             if (VideoSettings.shader == null || VideoSettings.shader.isEmpty()) VideoSettings.shader = rel;
             p.edit().putString("shader", VideoSettings.shader).putBoolean("padrao_2xbr", true).apply();
