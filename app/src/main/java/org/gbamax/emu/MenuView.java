@@ -140,7 +140,7 @@ public class MenuView extends FrameLayout {
         addView(bgView, new LayoutParams(-1, -1));
 
         // ---------- biblioteca ----------
-        grid = new GridView(c);
+        grid = new HoverGrid(c);
         grid.setVerticalSpacing(dp(12));
         grid.setHorizontalSpacing(0);
         grid.setStretchMode(GridView.STRETCH_COLUMN_WIDTH);
