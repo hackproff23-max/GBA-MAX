@@ -329,7 +329,7 @@ final class EditorUi {
             g.sel = -1;
             g.toolbar(2); // layout padrão de tudo e apaga o salvo
             g.sel = s;
-            VideoSettings.ctlAlpha = 70;
+            VideoSettings.ctlAlpha = 50;
             Arrays.fill(AL, -1);
             Arrays.fill(g.shp, 0);
         } else {

@@ -9,7 +9,9 @@ import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RadialGradient;
 import android.graphics.RectF;
+import android.graphics.Region;
 import android.graphics.Shader;
+import android.os.Build;
 import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
 import android.view.View;
@@ -32,11 +34,10 @@ public class GameView extends View {
     static final float[] PD = {24, 52, 17};
     // paisagem: x%largura, y%altura, raio%altura
     static final float[][] LS = {
-        {5.9f, 7.6f, 12.4f}, {16.6f, 8.8f, 7.3f}, {24.8f, 8.3f, 7.3f}, {74.5f, 8.3f, 7.3f}, {83.2f, 7.9f, 7.3f}, {93.75f, 7.9f, 13.2f},
-        {93.9f, 77.1f, 10.1f}, {80.9f, 85.7f, 10.1f}, {84.9f, 59.4f, 7.3f}, {93.1f, 53.2f, 7.3f}, {76.6f, 66.4f, 7.3f},
-        {40f, 91.8f, 7.9f}, {50f, 91.8f, 7.9f}, {60f, 91.8f, 6.6f}, {50f, 5.8f, 4.6f}};
-    static final float[] LD = {8.6f, 38.6f, 13.6f};   // analógico
-    static final float[] LC = {9.75f, 78.75f, 18.4f}; // D-pad (cruzeta)
+        {5, 11, 8}, {13, 11, 8}, {21, 11, 8}, {79, 11, 8}, {87, 11, 8}, {95, 11, 8},
+        {94, 52, 11}, {85, 72, 11}, {79, 50, 8}, {95, 85, 8}, {77, 85, 8},
+        {40, 92, 6}, {50, 92, 6}, {60, 92, 6}, {50, 6, 5}};
+    static final float[] LD = {13, 68, 24};
 
     // itens do layout: 0..14 botões, 15 direcional analógico, 16 tela, 17 D-pad (cruzeta)
     static final int N = 18, DPAD = 15, SCREEN = 16, DPC = 17;
@@ -77,7 +78,9 @@ public class GameView extends View {
     // brilho animado ao apertar: 0 = apagado, 1 = aceso (um valor por botão e um para o D-pad)
     final float[] glow = new float[15];
     float cgl, cgx, cgy;
-    Bitmap halo;
+    Bitmap halo, halo2;
+    // brilho branco da cruzeta com skin: só pinta em cima dos pixels da imagem (SRC_ATOP)
+    final Paint gp = mkGp();
     final LightingColorFilter[] lf = new LightingColorFilter[17];
 
     // modo de edição
@@ -142,16 +145,29 @@ public class GameView extends View {
         try { loadSkin(c); } catch (Throwable t) { }
     }
 
-    /** Carrega as imagens personalizadas dos botões (se houver). */
+    /** Skin padrão do app (assets/botoes), usada quando não há imagem personalizada. */
+    static Bitmap assetSkin(Context c, String key) {
+        try (java.io.InputStream in = c.getAssets().open("botoes/" + key + ".png")) {
+            return android.graphics.BitmapFactory.decodeStream(in);
+        } catch (Throwable t) { return null; }
+    }
+
+    /** Imagem personalizada, ou a skin padrão se não houver. */
+    static Bitmap skin(Context c, java.io.File d, String key) {
+        Bitmap b = Personalizar.bmp(d, key);
+        return b != null ? b : assetSkin(c, key);
+    }
+
+    /** Carrega as imagens dos botões: personalizadas (se houver) ou a skin padrão. */
     void loadSkin(Context c) {
         java.io.File d = Personalizar.botoes(c);
         for (int i = 0; i < 15; i++) {
-            skB[i] = Personalizar.bmp(d, Personalizar.KEYS[i]);
+            skB[i] = skin(c, d, Personalizar.KEYS[i]);
             skOn[i] = Personalizar.bmp(d, Personalizar.KEYS[i] + "_on");
         }
-        skDpad = Personalizar.bmp(d, Personalizar.DPAD);
-        skAnalog = Personalizar.bmp(d, Personalizar.ANALOG);
-        skKnob = Personalizar.bmp(d, Personalizar.KNOB);
+        skDpad = skin(c, d, Personalizar.DPAD);
+        skAnalog = skin(c, d, Personalizar.ANALOG);
+        skKnob = skin(c, d, Personalizar.KNOB);
         postInvalidate();
     }
 
@@ -164,6 +180,7 @@ public class GameView extends View {
     }
 
     boolean isHid(int i) { return ((hidden >> i) & 1) != 0; }
+    int baseOf(int i, boolean ed) { return EditorUi.baseOf(this, i, ed); }
 
     // ================= brilho ao apertar =================
     /** Bolinha de luz (branco quente que some nas bordas), criada uma vez só. */
@@ -178,6 +195,26 @@ public class GameView extends View {
             hc.drawCircle(s / 2f, s / 2f, s / 2f, hp);
         }
         return halo;
+    }
+
+    static Paint mkGp() {
+        Paint q = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+        q.setXfermode(new android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.SRC_ATOP));
+        return q;
+    }
+
+    /** Mancha escura de tecla afundada: miolo cheio e borda curta, criada uma vez só. */
+    Bitmap halo2() {
+        if (halo2 == null) {
+            int s = 128;
+            halo2 = Bitmap.createBitmap(s, s, Bitmap.Config.ARGB_8888);
+            Canvas hc = new Canvas(halo2);
+            Paint hp = new Paint(Paint.ANTI_ALIAS_FLAG);
+            hp.setShader(new RadialGradient(s / 2f, s / 2f, s / 2f,
+                    new int[]{0xFF141A26, 0xFF141A26, 0x00141A26}, new float[]{0f, 0.62f, 1f}, Shader.TileMode.CLAMP));
+            hc.drawCircle(s / 2f, s / 2f, s / 2f, hp);
+        }
+        return halo2;
     }
 
     /** Luz em volta do ponto (x, y); g = intensidade 0..1. */
@@ -223,17 +260,14 @@ public class GameView extends View {
                 ar[i] = LS[i][2] / 100f;
             }
             ax[DPAD] = LD[0] / 100f; ay[DPAD] = LD[1] / 100f; ar[DPAD] = LD[2] / 100f;
-            ax[DPC] = LC[0] / 100f; ay[DPC] = LC[1] / 100f; ar[DPC] = LC[2] / 100f;
-            // padrão em paisagem: tela cheia, analógico e D-pad visíveis
-            ax[SCREEN] = .5f; ay[SCREEN] = .5f; ar[SCREEN] = 1f;
-            sfh = 1f;
-            hidden = 0;
-            return;
+            float sw = Math.min(w, h * 1.5f);
+            ax[SCREEN] = .5f; ay[SCREEN] = .5f; ar[SCREEN] = sw / w;
         }
         // D-pad (cruzeta) começa oculto, no mesmo lugar do analógico
         ax[DPC] = ax[DPAD]; ay[DPC] = ay[DPAD]; ar[DPC] = ar[DPAD];
         sfh = 0;
         hidden = 1 << DPC;
+        LayoutPadrao.aplicar(this, w, h);
     }
 
     boolean loadSaved() {
@@ -502,6 +536,7 @@ public class GameView extends View {
 
     // ================= edição =================
     public void startEdit(Runnable done) {
+        EditorUi.begin(this);
         editing = true;
         onEditDone = done;
         sel = -1;
@@ -514,6 +549,7 @@ public class GameView extends View {
     }
 
     public void cancelEdit() {
+        EditorUi.cancel(this);
         editing = false;
         pop = false;
         panel = 0;
@@ -553,8 +589,18 @@ public class GameView extends View {
         if (sfh > 0) {
             float nx, ny, nr;
             if (psr > 0) { nx = psx; ny = psy; nr = psr; }
-            else if (vw > vh) { nx = .5f; ny = .5f; nr = Math.min(vw, vh * 1.5f) / vw; }
-            else { nx = .5f; ny = (vw * 2f / 3f) / 2f / vh; nr = 1f; }
+            else {
+                float[] oa = ax.clone(), oy = ay.clone(), orr = ar.clone();
+                float osf = sfh;
+                int oh = hidden;
+                defaults(vw, vh);
+                nx = .5f; ny = vw > vh ? .5f : (vw * 2f / 3f) / 2f / vh; nr = vw > vh ? Math.min(vw, vh * 1.5f) / vw : 1f;
+                System.arraycopy(oa, 0, ax, 0, N);
+                System.arraycopy(oy, 0, ay, 0, N);
+                System.arraycopy(orr, 0, ar, 0, N);
+                sfh = osf;
+                hidden = oh;
+            }
             ax[SCREEN] = nx; ay[SCREEN] = ny; ar[SCREEN] = nr;
             sfh = 0;
         } else {
@@ -582,7 +628,9 @@ public class GameView extends View {
         sel = to;
     }
 
-    boolean editTouch(MotionEvent e) {
+    boolean editTouch(MotionEvent e) { return EditorUi.touch(this, e); }
+
+    boolean editTouchOld(MotionEvent e) {
         float x = e.getX(), y = e.getY();
         switch (e.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
@@ -666,8 +714,7 @@ public class GameView extends View {
                 float osf = sfh;
                 int oh = hidden;
                 defaults(vw, vh);
-                float dsf = sfh;
-                float dx = ax[sel], dy = ay[sel], dRad = ar[sel];
+                float dsf = sfh; float dx = ax[sel], dy = ay[sel], dRad = ar[sel];
                 boolean dh = isHid(sel);
                 System.arraycopy(oa, 0, ax, 0, N);
                 System.arraycopy(oy, 0, ay, 0, N);
@@ -691,7 +738,9 @@ public class GameView extends View {
         invalidate();
     }
 
-    void drawEdit(Canvas c) {
+    void drawEdit(Canvas c) { EditorUi.draw(this, c); }
+
+    void drawEditOld(Canvas c) {
         c.drawColor(0x55000000);
         // área da tela do jogo
         p.setStyle(Paint.Style.FILL);
@@ -759,8 +808,20 @@ public class GameView extends View {
             bp.setColorFilter(null);
             bp.setAlpha(h ? 90 : 255);
             sr.set(ccx - cr, ccy - cr, ccx + cr, ccy + cr);
-            c.drawBitmap(skDpad, null, sr, bp);
-            // brilho no lado apertado da cruzeta
+            if (!h && !editing && cgl > 0f && (cgx != 0 || cgy != 0)) {
+                // cada tecla afunda sozinha (escurece); os cantos só com duas direções juntas
+                int sv = c.saveLayer(sr, null);
+                c.drawBitmap(skDpad, null, sr, bp);
+                boolean diag = cgx != 0 && cgy != 0;
+                float o = cr * (diag ? 0.52f : 0.6f), R = cr * (diag ? 0.55f : 0.7f);
+                float gx = ccx + cgx * o, gy = ccy + cgy * o;
+                gp.setAlpha((int) (Math.min(1f, cgl) * 150));
+                tmp.set(gx - R, gy - R, gx + R, gy + R);
+                c.drawBitmap(halo2(), null, tmp, gp);
+                c.restoreToCount(sv);
+            } else {
+                c.drawBitmap(skDpad, null, sr, bp);
+            }
             return;
         }
         float w = cr * 0.33f, L = cr;
@@ -794,18 +855,60 @@ public class GameView extends View {
         c.drawPath(path, p);
     }
 
+    // zonas apertadas da cruzeta (para o destaque só na direção tocada)
+    final Path zp = new Path();
+
+    /** Abre uma camada com opacidade pct (0..100) em volta de (x, y); devolve o ponto para restoreToCount. */
+    int layerAt(Canvas c, float x, float y, float r, int pct) {
+        float m = r * 1.6f + 8 * den;
+        return c.saveLayerAlpha(x - m, y - m, x + m, y + m, Math.max(0, Math.min(100, pct)) * 255 / 100);
+    }
+
+    /** Cruzeta em base%; só a(s) direção(ões) apertada(s) ficam 10% mais opacas (70% -> 80%). */
+    void drawCrossLayered(Canvas c, boolean h, int base, boolean ed) {
+        if (skDpad != null) {
+            int sv0 = layerAt(c, ccx, ccy, cr, base);
+            drawCross(c, h);
+            c.restoreToCount(sv0);
+            return;
+        }
+        int cm = crossM;
+        if (h || ed || cm == 0) {
+            int sv = layerAt(c, ccx, ccy, cr, base);
+            drawCross(c, h);
+            c.restoreToCount(sv);
+            return;
+        }
+        float th = cr * 0.3f, e = cr * 1.5f;
+        zp.reset();
+        if ((cm & UP) != 0) zp.addRect(ccx - e, ccy - e, ccx + e, ccy - th, Path.Direction.CW);
+        if ((cm & DN) != 0) zp.addRect(ccx - e, ccy + th, ccx + e, ccy + e, Path.Direction.CW);
+        if ((cm & LF) != 0) zp.addRect(ccx - e, ccy - e, ccx - th, ccy + e, Path.Direction.CW);
+        if ((cm & RT) != 0) zp.addRect(ccx + th, ccy - e, ccx + e, ccy + e, Path.Direction.CW);
+        // resto da cruzeta na opacidade padrão
+        int sv = layerAt(c, ccx, ccy, cr, base);
+        if (Build.VERSION.SDK_INT >= 26) c.clipOutPath(zp); else c.clipPath(zp, Region.Op.DIFFERENCE);
+        drawCross(c, false);
+        c.restoreToCount(sv);
+        // lado apertado, 10% mais opaco
+        sv = layerAt(c, ccx, ccy, cr, base + 10);
+        c.clipPath(zp);
+        drawCross(c, false);
+        c.restoreToCount(sv);
+    }
+
     @Override
     protected void onDraw(Canvas c) {
         if (editing) drawEdit(c);
         boolean ed = editing;
         boolean anim = false; // ainda tem brilho acendendo/apagando?
-        // no editor a opacidade aparece com piso de 35% para os botões continuarem visíveis
-        int al = Math.max(ed ? 35 : 10, Math.min(100, VideoSettings.ctlAlpha)) * 255 / 100;
-        boolean lay = al < 255;
-        if (lay) c.saveLayerAlpha(0, 0, getWidth(), getHeight(), al);
+        // opacidade padrão (70%); no editor tem piso de 35% para os botões continuarem visíveis
+        // ao apertar, cada botão sobe 10% (80%) em vez de a camada inteira ter uma opacidade só
+        int base = Math.max(ed ? 35 : 10, Math.min(100, VideoSettings.ctlAlpha));
         p.setStrokeWidth(3);
         if (!isHid(DPAD) || ed) {
             boolean h = isHid(DPAD);
+            int sv = layerAt(c, dcx, dcy, dr, baseOf(DPAD, ed) + (!h && knob ? 10 : 0));
             float kcx = !h && knob ? kx : dcx, kcy = !h && knob ? ky : dcy;
             if (skAnalog != null) {
                 bp.setColorFilter(null);
@@ -828,6 +931,7 @@ public class GameView extends View {
                 p.setColor(h ? 0x22FFFFFF : knob ? 0x88FFFFFF : 0x33FFFFFF);
                 c.drawCircle(kcx, kcy, dr * 0.4f, p);
             }
+            c.restoreToCount(sv);
         }
         if (!isHid(DPC) || ed) {
             // brilho da cruzeta: segue o lado que está apertado e apaga devagar
@@ -839,7 +943,7 @@ public class GameView extends View {
             float[] cg = {cgl};
             if (ease(cg, 0, cm != 0)) anim = true;
             cgl = cg[0];
-            drawCross(c, isHid(DPC));
+            drawCrossLayered(c, isHid(DPC), baseOf(DPC, ed), ed);
         }
         for (int i = 0; i < 15; i++) {
             boolean h = isHid(i);
@@ -848,6 +952,8 @@ public class GameView extends View {
             // brilho animado: acende rápido ao apertar e apaga devagar ao soltar
             if (ease(glow, i, on)) anim = true;
             float lum = ed || h ? 0f : glow[i];
+            // 70% parado -> 80% apertado (sobe junto com o brilho)
+            int sv = layerAt(c, px[i], py[i], pr[i], baseOf(i, ed) + Math.round(10 * lum));
             Bitmap sk = on && skOn[i] != null ? skOn[i] : skB[i];
             if (sk != null) {
                 float rr = pr[i];
@@ -856,6 +962,7 @@ public class GameView extends View {
                 sr.set(px[i] - rr, py[i] - rr, px[i] + rr, py[i] + rr);
                 c.drawBitmap(sk, null, sr, bp);
                 bp.setColorFilter(null);
+                c.restoreToCount(sv);
                 continue;
             }
             Path sp = buildShape(px[i], py[i], pr[i], shp[i]);
@@ -870,9 +977,9 @@ public class GameView extends View {
             p.setColor(h ? 0x55FFFFFF : 0xDDFFFFFF);
             p.setTextSize(ts);
             c.drawText(LAB[i], px[i], py[i] + ts * 0.35f, p);
+            c.restoreToCount(sv);
         }
-        if (lay) c.restore();
-        if (ed && panel != 0) drawPanel(c);
+        if (ed) EditorUi.drawTop(this, c);
         if (anim && !ed) postInvalidateOnAnimation();
     }
 
@@ -891,8 +998,8 @@ public class GameView extends View {
                     double d = Math.hypot(dx, dy);
                     if (d < dr * 1.5) {
                         if (d > dr * 0.25) {
-                            int s = (int) Math.round(Math.atan2(dy, dx) / (Math.PI / 4));
-                            m |= DIRS[(s + 8) % 8];
+                            int s = (int) Math.round(Math.atan2(dy, dx) / (Math.PI / 2));
+                            m |= DIRS[((s + 4) % 4) * 2];
                         }
                         double q = Math.min(d, dr);
                         k = true;

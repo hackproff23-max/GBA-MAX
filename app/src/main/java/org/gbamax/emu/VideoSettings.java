@@ -40,7 +40,7 @@ public class VideoSettings {
     public static volatile boolean mute = false;
     public static volatile int abuf = 0;       // 0 pequeno, 1 médio, 2 grande
     // controle
-    public static volatile int ctlAlpha = 50;  // opacidade dos botões (10..100)
+    public static volatile int ctlAlpha = 50; // opacidade dos botões (10..100)
     public static volatile boolean vibrate = false;
     // avançado
     public static volatile int ffSpeed = 4;    // velocidade do avanço rápido
@@ -58,7 +58,7 @@ public class VideoSettings {
     static SharedPreferences sp(Context c) { return c.getSharedPreferences("gbamax_video", 0); }
 
     public static void load(Context c) {
-        Backup.iniciar(c); // instalação nova: traz de volta GBA-MAX/Configurações/configuracoes.json
+        Backup.iniciar(c);
         SharedPreferences p = sp(c);
         orient = p.getInt("orient", 0);
         frameskip = p.getInt("frameskip", 0);
@@ -71,12 +71,15 @@ public class VideoSettings {
         volume = p.getInt("volume", 100);
         mute = p.getBoolean("mute", false);
         abuf = p.getInt("abuf", 0);
-        ctlAlpha = p.getInt("opac50", 50);
+        ctlAlpha = p.getInt("ctlAlpha", 50);
+        // uma vez só: passa a opacidade guardada para o novo padrão (70%); depois é só mexer no editor
+        if (!p.getBoolean("alpha50", false)) { ctlAlpha = 50; p.edit().putInt("ctlAlpha", 50).putBoolean("alpha50", true).apply(); }
         vibrate = p.getBoolean("vibrate", false);
         ffSpeed = p.getInt("ffSpeed", 4);
         resume = p.getBoolean("resume", true);
         autoOn = p.getBoolean("autoOn", true);
         autoSecs = p.getInt("autoSecs", 60);
+        ShaderSources.padrao(c);
     }
 
     public static void save(Context c) {
@@ -89,10 +92,10 @@ public class VideoSettings {
                 .putInt("contrast", contrast).putInt("sat", sat)
                 .putInt("gamma", gamma).putInt("lcd", lcd)
                 .putInt("volume", volume).putBoolean("mute", mute).putInt("abuf", abuf)
-                .putInt("opac50", ctlAlpha).putBoolean("vibrate", vibrate)
+                .putInt("ctlAlpha", ctlAlpha).putBoolean("vibrate", vibrate)
                 .putInt("ffSpeed", ffSpeed).putBoolean("resume", resume)
                 .putBoolean("autoOn", autoOn).putInt("autoSecs", autoSecs).apply();
-        if (Backup.salvar(c)) load(c); // salva tudo no json (ou recarrega se acabou de restaurar)
+        if (Backup.salvar(c)) load(c);
     }
 
     // ================= abrir / fechar jogo =================
