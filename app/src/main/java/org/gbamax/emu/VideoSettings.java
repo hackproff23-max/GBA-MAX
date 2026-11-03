@@ -58,6 +58,7 @@ public class VideoSettings {
     static SharedPreferences sp(Context c) { return c.getSharedPreferences("gbamax_video", 0); }
 
     public static void load(Context c) {
+        Backup.iniciar(c); // instalação nova: traz de volta GBA-MAX/Configurações/configuracoes.json
         SharedPreferences p = sp(c);
         orient = p.getInt("orient", 0);
         frameskip = p.getInt("frameskip", 0);
@@ -91,6 +92,7 @@ public class VideoSettings {
                 .putInt("opac50", ctlAlpha).putBoolean("vibrate", vibrate)
                 .putInt("ffSpeed", ffSpeed).putBoolean("resume", resume)
                 .putBoolean("autoOn", autoOn).putInt("autoSecs", autoSecs).apply();
+        if (Backup.salvar(c)) load(c); // salva tudo no json (ou recarrega se acabou de restaurar)
     }
 
     // ================= abrir / fechar jogo =================
